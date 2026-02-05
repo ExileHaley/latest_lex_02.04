@@ -193,5 +193,13 @@ contract RechargeTest is Test{
         assertEq(infos[0].user, user4);
         assert(infos[0].nodeType == Enum.NodeType.envoy);
         assertEq(infos[0].performance, 0);
+
+
+        vm.startPrank(user4);
+        deal(USDT, user4, 500e18);
+        IERC20(USDT).approve(address(recharge), 500e18);
+        vm.expectRevert(bytes("ALREADY_RECHARGE."));
+        recharge.singleRecharge(Enum.NodeType.envoy);
+        vm.stopPrank();
     }
 }

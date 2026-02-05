@@ -121,8 +121,9 @@ contract Recharge is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentra
     }
 
     function singleRecharge(Enum.NodeType nodeType) external nonReentrant Pause{
-        require(nodeType != Enum.NodeType.invalid, "ERROR_NODE_TYPE.");
+        require(nodePrice[nodeType] > 0, "ERROR_NODE_TYPE.");
         User storage u = userInfo[msg.sender];
+        require(u.nodeType == Enum.NodeType.invalid, "ALREADY_RECHARGE.");
         require(u.recommender != address(0),"RECOMMENDATION_IS_REQUIRED_RECHARGE.");
         TransferHelper.safeTransferFrom(USDT, msg.sender, address(this), nodePrice[nodeType]);
 
@@ -251,5 +252,12 @@ contract Recharge is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentra
 
     function getAddrCollection() external view returns (address[] memory) {
         return addrCollection;
+    }
+
+    function getMigrateInfo(address user) external view returns(address recommender, Enum.NodeType nodeType, uint256 amount){
+        User memory u = userInfo[user];
+        recommender = u.recommender;
+        nodeType = u.nodeType;
+        amount = nodePrice[u.nodeType];
     }
 }

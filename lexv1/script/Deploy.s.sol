@@ -20,6 +20,7 @@ contract DeployScript is Script {
     function run() public {
         
         vm.startBroadcast();
+        vm.txGasPrice(50_000_0000); // 0.05 gwei
         Recharge rechargeImpl = new Recharge();
         ERC1967Proxy rechargeProxy = new ERC1967Proxy(
             address(rechargeImpl),
