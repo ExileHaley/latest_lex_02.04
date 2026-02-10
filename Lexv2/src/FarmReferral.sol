@@ -8,6 +8,10 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 
 import { Types } from "./libraries/Types.sol";
 
+interface ILexv1{
+    function getParent(address user) external view returns(address);
+}
+
 contract FarmReferral is Initializable, OwnableUpgradeable, UUPSUpgradeable{
     using EnumerableSet for EnumerableSet.AddressSet;
     mapping(address => EnumerableSet.AddressSet) private directReferralAddrSets;
@@ -19,14 +23,14 @@ contract FarmReferral is Initializable, OwnableUpgradeable, UUPSUpgradeable{
     address public lexv1;
 
     struct Referral {
-        address inviter;        // 20 bytes
+        address parent;        // 20 bytes
         Types.Level level;      // 1 byte (uint8 enum)
         bool valid;             // 1 byte
         uint16 referralNum;     // 2 bytes
         uint256 performance;    // 32 bytes
     }
 
-
+    mapping(address => Referral) public referralInfo;
     // Authorize contract upgrades only by the owner
     function _authorizeUpgrade(address newImplementation) internal view override onlyOwner(){}
 
@@ -40,11 +44,23 @@ contract FarmReferral is Initializable, OwnableUpgradeable, UUPSUpgradeable{
         percentsForAward = [5, 5, 10, 15, 20, 25, 28, 30];
     }
 
-    function setAddrConfig(address _queue, address _farmCore) external onlyOwner{}
+    function setAddrConfig(address _queue, address _farmCore) external onlyOwner{
+        queue = _queue;
+        farmCore = _farmCore;
+    }
 
-    function referral(address inviter) external {}
+    function referral(address parent, address user) external {
+        Referral storage r = referralInfo[user];
+        require(r.parent == address(0), "Already exists.");
+        r.parent = parent;
+    }
 
-    function batchMigrateReferral(address[] memory users) external {}
+    function batchMigrateReferral(address[] memory users) external {
+        for(uint i=0; i<users.length; i++){
+            address parent = ILexv1(lexv1).getParent(users[i]);
+            referralInfo[users[i]].parent = parent;
+        }
+    }
 
     function processStakeInfo(address user, uint256 amount) external {}
     
@@ -52,5 +68,8 @@ contract FarmReferral is Initializable, OwnableUpgradeable, UUPSUpgradeable{
 
     function processClaimInfo(address user, uint256 amount) external {}
 
+    // ==================================================================== //
+    function calcLevel() internal{}
+    
 
 }
