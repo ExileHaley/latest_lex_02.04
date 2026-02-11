@@ -16,9 +16,7 @@ contract Vault is Initializable, OwnableUpgradeable, UUPSUpgradeable{
     struct Order {
         uint128 amount;       // 质押本金
         uint128 claimed;      // 已提取收益
-
         uint32  startTime;    // 质押开始时间
-
         uint8   stakeIndex;   // 质押类型（不同期限/利率/提取间隔）
         uint8   status;       // 0=active, 1=unstaked, 2=finished
     }
@@ -27,7 +25,9 @@ contract Vault is Initializable, OwnableUpgradeable, UUPSUpgradeable{
         uint32 duration;         // 锁仓总时长（秒）
         uint32 claimInterval;    // 每多少秒可提取一次收益
         uint64 rate;             // 秒级利率（可乘 1e18 或 1e6）
+        uint32 fee;              //本金赎回手续费
     }
+    //0代表1天，1代表15天，2代表30天，3代表90天
     mapping(uint8 => StakePlan) public stakePlans;
     mapping(address => Order[]) userOrders;
     mapping(address => uint256) public userTotalStaked;
@@ -59,36 +59,125 @@ contract Vault is Initializable, OwnableUpgradeable, UUPSUpgradeable{
         userOrders[user].push(order);
         userTotalStaked[user] += amount;
     }
+
     //提取收益
-    function claimOrder(address user, uint256 orderIndex) external returns(uint256){
-        //提取订单收益，以当前calculateReward为准，另外再订单中记录已提取数量
+    function claim(address user, uint256 orderIndex) external returns(uint256){
+        Order storage order = userOrders[user][orderIndex];
+        require(order.status != 1, "Already unstaked.");
+
+        StakePlan memory plan = stakePlans[order.stakeIndex];
+
+        // 提取周期控制
+        if(plan.claimInterval > 0){
+            uint256 elapsed = block.timestamp - order.startTime;
+            require(elapsed >= plan.claimInterval, "Too early to claim.");
+
+            // 当前属于第几个周期
+            uint256 periods = elapsed / plan.claimInterval;
+            uint256 windowStart = order.startTime + periods * plan.claimInterval;
+            uint256 windowEnd   = windowStart + 1 days; // 24h 提取窗口
+            require(block.timestamp >= windowStart && block.timestamp <= windowEnd, "Not in claim window.");
+        }
+
+        uint256 award = calculateReward(user, orderIndex);
+        require(award > 0, "No reward to claim.");
+
+        //TODO 转账占位
+        TransferHelper.safeTransfer(USDT, address(this), award);
+
+        order.claimed += uint128(award);
+
+        return award;
     }
-    function claimReferral(address user, uint256 amount) external {
-        //只发送资金，不做校验信任core
-    }
+
     //赎回订单
-    function unstake(address user, uint256 orderIndex) external{
-        // 用户赎回订单
-        // 修改订单状态 order.status = 1/2
-        // 扣减用户总质押量 userTotalStaked
-        // 可触发返还本金 + 未提取收益
-        // 注意点：
-        // 判断 订单是否到期（或者允许提前赎回但收取手续费）
-        // 更新 userTotalStaked，保持 Vault 数据一致
+    function unstake(address user, uint256 orderIndex) external {
+        Order storage order = userOrders[user][orderIndex];
+        require(order.status == 0, "Not active");
+
+        StakePlan memory plan = stakePlans[order.stakeIndex];
+        uint256 principal = order.amount;
+        uint256 claimed = order.claimed;
+
+        uint256 principalFee = principal * plan.fee / 100; 
+        uint256 reclaimedClaimed = claimed * 90 / 100; // 已领取收益回收部分，仅用于计算
+
+        // 处理减法可能出现的负数情况
+        uint256 payout;
+        if (principalFee + reclaimedClaimed >= principal) {
+            payout = 0;
+        } else {
+            payout = principal - principalFee - reclaimedClaimed;
+        }
+
+        // 更新状态
+        order.status = 1; // unstaked
+        userTotalStaked[user] -= principal;
+
+        // 给用户转账
+        if(payout > 0){
+            TransferHelper.safeTransfer(USDT, user, payout);
+        }
+
+        // 手续费转合约/treasury
+        if(principalFee > 0){
+            // TODO: 改成 treasury 地址
+            TransferHelper.safeTransfer(USDT, address(this), principalFee);
+        }
     }
+
+
+
     //修改订单，重质押
-    function restake(address user, uint256 orderIndex, uint256 stakeIndex) external{
-        // 职责：
-        // 修改已有订单的质押类型（期限/利率/提取间隔）
-        // 重置 startTime
-        // 判断新 stakeIndex 必须 >= 原 stakeIndex（防止降级）
-        // 判断旧订单是否赎回或者到期，到期允许操作，赎回则直接拒绝
-        // 注意点：
-        // 不改变本金，或者根据需求增加补差价逻辑
-        // 可限制操作频率，防止滥用
+    function restake(address user, uint256 orderIndex, uint8 newStakeIndex) external {
+        Order storage order = userOrders[user][orderIndex];
+        // 订单必须是 active
+        require(order.status == 0, "Order not active");
+        // 新的 stakeIndex 必须大于等于当前订单
+        require(newStakeIndex >= order.stakeIndex, "Cannot downgrade stake plan");
+        // 校验 stakePlan 有效
+        StakePlan memory newPlan = stakePlans[newStakeIndex];
+        require(newPlan.duration > 0, "Invalid stake plan");
+        // 重置订单
+        order.stakeIndex = newStakeIndex;
+        order.startTime = uint32(block.timestamp);
+        // 注意：本金保持不变，claimed 保留，未提取收益累积
+
     }
+
     //计算单个订单的收益
-    function calculateReward(address user, uint256 orderIndex) external view returns (uint256) {}
+    function calculateReward(address user, uint256 orderIndex) public view returns (uint256) {
+        Order memory order = userOrders[user][orderIndex];
+        
+        // 如果订单不是 active 状态，收益为 0
+        if (order.status != 0) {
+            return 0;
+        }
+
+        StakePlan memory plan = stakePlans[order.stakeIndex];
+        uint256 endTime = uint256(order.startTime) + plan.duration;
+
+        // 计算截止时间，不超过订单到期时间
+        uint256 currentTime = block.timestamp;
+        if (currentTime > endTime) {
+            currentTime = endTime;
+        }
+
+        // 已过去时间
+        uint256 elapsed = currentTime - order.startTime;
+        if (elapsed == 0) return 0;
+
+        // 按秒利率计算收益
+        // 注意 rate 精度，需要与 amount 对应
+        uint256 totalEarned = uint256(order.amount) * elapsed * plan.rate / 1e18;
+
+        // 扣除已提取的收益
+        if (totalEarned <= order.claimed) {
+            return 0;
+        }
+        return totalEarned - order.claimed;
+    }
+
 
     // ======================internal==================================
     function _exchange(address fromToken, address toToken, uint256 fromAmount) private{
@@ -138,4 +227,5 @@ contract Vault is Initializable, OwnableUpgradeable, UUPSUpgradeable{
     function getUserOrders(address user) external view returns(Order[] memory){
         return userOrders[user];
     } 
+
 }
