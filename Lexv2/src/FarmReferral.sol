@@ -24,7 +24,7 @@ contract FarmReferral is Initializable, OwnableUpgradeable, UUPSUpgradeable{
 
     struct Referral {
         address parent;        // 20 bytes
-        Types.Level level;      // 1 byte (uint8 enum)
+        Types.LevelType level;      // 1 byte (uint8 enum)
         bool valid;             // 1 byte
         uint16 referralNum;     // 2 bytes
         uint256 performance;    // 32 bytes
