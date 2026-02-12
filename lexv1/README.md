@@ -14,7 +14,7 @@ $ forge install openzeppelin/openzeppelin-contracts-upgradeable  --no-git
 
 ### deploy 
 ```shell
-$ forge script script/Deploy.s.sol -vvv --rpc-url=https://bsc.blockrazor.xyz --broadcast --private-key=[privateKey]
+$ forge script script/Upgrade.s.sol -vvv --rpc-url=https://bsc.blockrazor.xyz --broadcast --private-key=[privateKey]
 ```
 ### USDT:0x55d398326f99059fF775485246999027B3197955
 ### recharge:0x194635920CDC435c560836dF5D9727bDb43242cb
@@ -52,13 +52,14 @@ struct RecordAward{
 }
 //获取用户信息
 function getUserInfo(address user) external view returns(
-    address recommender, //当前用户的邀请人地址
-    Enum.NodeType nodeType, //当前用户的节点类型
-    uint256 referralNum, //当前用户的总邀请人数
-    uint256 performance, //当前用户的总邀请业绩(伞下业绩)
-    uint256 award,  //当前用户的奖励数量
-    uint256 awardRatio, //当前用户的奖励百分比，只用于判断，不做展示
-    Enum.RecordAward[] memory recordAwards //奖励信息数组
+        address recommender,//当前用户的邀请人地址
+        Enum.NodeType nodeType,//当前用户的节点类型
+        uint256 referralNum,//当前用户的总邀请人数
+        uint256 performance,//当前用户的总邀请业绩(伞下业绩)
+        uint256 award,//当前用户的奖励数量
+        uint256 awardRatio,//当前用户的奖励百分比，只用于判断，不做展示
+        uint256 totalAward,//当前用户的奖励数，总奖励不能提取只展示
+        Enum.RecordAward[] memory recordAwards//奖励信息数组
 );
 //直推信息
 struct DirectInfo{

@@ -30,6 +30,7 @@ contract Recharge is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentra
         uint256 performance;
         uint256 award;
         uint256 awardRatio;
+        uint256 extracted;
     }
     mapping(address => User) public userInfo;
 
@@ -191,11 +192,12 @@ contract Recharge is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentra
 
 
     function claim() external nonReentrant {
-        uint256 amount = userInfo[msg.sender].award;
+        User storage u = userInfo[msg.sender];
+        uint256 amount = u.award - u.extracted;
         require(amount > 0, "NO_AWARD");
 
         // effects
-        userInfo[msg.sender].award = 0;
+        userInfo[msg.sender].extracted += amount;
 
         // interactions
         TransferHelper.safeTransfer(USDT, msg.sender, amount);
@@ -209,6 +211,7 @@ contract Recharge is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentra
         uint256 performance,
         uint256 award,
         uint256 awardRatio,
+        uint256 totalAward,
         Enum.RecordAward[] memory recordAwards
     ){
         User memory u = userInfo[user];
@@ -216,7 +219,8 @@ contract Recharge is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentra
         nodeType = u.nodeType;
         referralNum = u.referralNum;
         performance = u.performance;
-        award = u.award;
+        award = u.award - u.extracted;
+        totalAward = u.award;
         awardRatio = u.awardRatio;
         recordAwards = recordAwardInfo[user];
     }
