@@ -12,15 +12,15 @@ contract DeployScript is Script {
     address  public admin;
 
     function setUp() public {
-        recipient = 0xC29f694A76B5Ef37709DB65c6A205B2105132021;
+        recipient = 0x9CafBd03E64341789231E430c99aaa902a390f60;
         initialCode = 0x07aEEec50D35C88e3BD9d9666a563ac799d5036a;
-        admin = 0x7786F26d88dfC4fa17e7722d8D9cbdA4be54aC55;
+        admin = 0x10b6d39D35fbEE7BB6d0088B0CdFAe8519052FA1;
     }
 
     function run() public {
         
         vm.startBroadcast();
-        vm.txGasPrice(50_000_0000); // 0.05 gwei
+        vm.txGasPrice(90_000_0000); // 0.05 gwei
         Recharge rechargeImpl = new Recharge();
         ERC1967Proxy rechargeProxy = new ERC1967Proxy(
             address(rechargeImpl),

@@ -75,12 +75,12 @@ contract Recharge is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentra
         admin = _admin;
         recipient = _recipient;
         initialCode = _initialCode;
-        // nodePrice[Enum.NodeType.envoy] = 500e18;
-        // nodePrice[Enum.NodeType.director] = 2000e18;
-        // nodePrice[Enum.NodeType.partner] = 5000e18;
-        nodePrice[Enum.NodeType.envoy] = 1e17;
-        nodePrice[Enum.NodeType.director] = 2e17;
-        nodePrice[Enum.NodeType.partner] = 3e17;
+        nodePrice[Enum.NodeType.envoy] = 500e18;
+        nodePrice[Enum.NodeType.director] = 2000e18;
+        nodePrice[Enum.NodeType.partner] = 5000e18;
+        // nodePrice[Enum.NodeType.envoy] = 1e17;
+        // nodePrice[Enum.NodeType.director] = 2e17;
+        // nodePrice[Enum.NodeType.partner] = 3e17;
     }
 
     
