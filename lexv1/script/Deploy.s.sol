@@ -12,8 +12,8 @@ contract DeployScript is Script {
     address  public admin;
 
     function setUp() public {
-        recipient = 0x9CafBd03E64341789231E430c99aaa902a390f60;
-        initialCode = 0x07aEEec50D35C88e3BD9d9666a563ac799d5036a;
+        recipient = 0xD29B0f48DF7a0D579C76e816a74B7b05c131c595;
+        initialCode = 0x19Cf31C1DA6b2c8cD9fD0b8AA4466433196BDBe6;
         admin = 0x10b6d39D35fbEE7BB6d0088B0CdFAe8519052FA1;
     }
 

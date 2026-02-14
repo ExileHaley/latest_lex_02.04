@@ -42,6 +42,7 @@ contract Recharge is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentra
     address public recipient;
     address[] addrCollection;
     mapping(address => bool) public isAddCollection;
+    mapping(address => bool)  public  eligibility;
 
     uint256 public totalPerformance;
     bool    private pause;
@@ -78,9 +79,6 @@ contract Recharge is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentra
         nodePrice[Enum.NodeType.envoy] = 500e18;
         nodePrice[Enum.NodeType.director] = 2000e18;
         nodePrice[Enum.NodeType.partner] = 5000e18;
-        // nodePrice[Enum.NodeType.envoy] = 1e17;
-        // nodePrice[Enum.NodeType.director] = 2e17;
-        // nodePrice[Enum.NodeType.partner] = 3e17;
     }
 
     
@@ -93,15 +91,19 @@ contract Recharge is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentra
         userInfo[user].awardRatio = _ratio;
     }
 
-    function referral(address recommender) external Pause{
+    function referral(address recommender) external Pause {
+        require(initialCode != msg.sender, "Initial code cannot register.");
         require(recommender != address(0),"ZERO_ADDRESS.");
         require(recommender != msg.sender,"INVALID_RECOMMENDER.");
-        if(recommender != initialCode) require(userInfo[recommender].recommender != address(0),"RECOMMENDATION_IS_REQUIRED_REFERRAL.");
+        
+        if(recommender != initialCode) {
+            require(eligibility[recommender], "No eligibility."); // 已隐式保证推荐人非孤立节点
+        }
+
         require(userInfo[msg.sender].recommender == address(0),"INVITER_ALREADY_EXISTS.");
         userInfo[msg.sender].recommender = recommender;
         directReferrals[recommender].push(msg.sender);
 
-        //collect address
         if (!isAddCollection[msg.sender]) {
             addrCollection.push(msg.sender);
             isAddCollection[msg.sender] = true;
@@ -110,6 +112,7 @@ contract Recharge is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentra
         _processReferralNumber(msg.sender);
         emit Referral(recommender, msg.sender);
     }
+
 
     function _processReferralNumber(address user) private{
         address current = userInfo[user].recommender;
@@ -141,7 +144,7 @@ contract Recharge is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentra
 
         u.nodeType = nodeType;
         totalPerformance +=  nodePrice[nodeType];
-        
+        eligibility[msg.sender] = true;
         if (userInfo[msg.sender].recommender != address(0)) _processReferral(msg.sender, nodePrice[nodeType]);
         emit Staked(msg.sender, nodePrice[nodeType], nodeType);
     }
@@ -254,7 +257,14 @@ contract Recharge is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentra
 
     function validInvitationCode(address user) external view returns(bool){
         if(user == initialCode) return true;
-        else return userInfo[user].recommender != address(0);
+        else return eligibility[user];
+    }
+
+    function generateCode() external {
+        require(userInfo[msg.sender].recommender != address(0), "Not permit generate.");
+        require(!eligibility[msg.sender],"ALREADY_EXISTS_ELIGIBILITY.");
+        eligibility[msg.sender] = true;
+        TransferHelper.safeTransferFrom(USDT, msg.sender, address(this), 1e18);
     }
 
     function getAddrCollection() external view returns (address[] memory) {

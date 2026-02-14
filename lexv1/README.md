@@ -17,7 +17,7 @@ $ forge install openzeppelin/openzeppelin-contracts-upgradeable  --no-git
 $ forge script script/Deploy.s.sol -vvv --rpc-url=https://bsc.blockrazor.xyz --broadcast --private-key=[privateKey]
 ```
 ### USDT:0x55d398326f99059fF775485246999027B3197955
-### recharge:0xAF255D2D52fbD38253C4E9d3d639A061fFe622F0
+### recharge:0xe09996cf31098462A38e6FaA232fB16FB878f2Ee
 ### abi:./out/Recahrge.sol/Recharge.json
 ### recharge func list
 ```solidity
@@ -30,10 +30,12 @@ function setAwardRatio(address user, uint256 _ratio) external;
 ```
 ------------------------------------------------------------------------
 ```solidity
-//获取首码地址
+//获取首码地址，仍旧是进入就弹出，因为generateCode生成的前提是必须绑定了邀请人
 function initialCode() external view returns(address);
 //验证当前地址user是否可以作为邀请吗
 function validInvitationCode(address user) external view returns(bool);
+//生成邀请码,通过上面validInvitationCode判断地址是否有邀请资格，没有资格则可以展示这个按钮让用户支付1u生成邀请码
+function generateCode() external;
 //invalid(0/无效)，envoy(1/大使)，director(2/股东)，partner(3/合伙人)
 enum NodeType{invalid, envoy, director, partner}
 //通过节点类型获取不同节点的价格，然后进行充值
