@@ -14,7 +14,7 @@ contract UpgradeScript is Script{
 
     function run() public {
         vm.startBroadcast();
-        vm.txGasPrice(90_000_0000); // 0.09 gwei
+        vm.txGasPrice(100_000_0000); // 0.09 gwei
 
         Recharge rechargeV2Impl = new Recharge();
         bytes memory data= "";

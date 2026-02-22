@@ -107,6 +107,7 @@ contract Recharge is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentra
                     isAddCollection[users[i]] = true;
                 }
             }
+            eligibility[users[i]] = true;
         }
     }
 
