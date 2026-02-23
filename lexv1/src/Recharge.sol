@@ -95,19 +95,7 @@ contract Recharge is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentra
         require(nodeType != Enum.NodeType.invalid, "INVALID_NODE_TYPE");
         for (uint i = 0; i < users.length; i++) {
             User storage u  = userInfo[users[i]];
-
-            // 防止覆盖已有用户
-            if (u.recommender == address(0)) {
-                u.recommender = initialCode;
-                u.nodeType = nodeType;
-
-                // 添加到地址集合
-                if (!isAddCollection[users[i]]) {
-                    addrCollection.push(users[i]);
-                    isAddCollection[users[i]] = true;
-                }
-            }
-            eligibility[users[i]] = true;
+            u.nodeType = nodeType;
         }
     }
 
