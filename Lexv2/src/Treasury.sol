@@ -13,6 +13,18 @@ import { Types } from "./libraries/Types.sol";
 interface ILex {
     function specialWithdraw(uint256 amount) external;
 }
+
+interface INodeDividends{
+    function updateFarm(uint256 amount) external;
+}
+
+interface IReferrals{
+    function calcLevelAward(address user, uint256 amount)
+        external
+        view
+        returns (Types.Revenue[] memory);
+}
+
 contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     IUniswapV2Router02 public constant pancakeRouter =
         IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
@@ -46,6 +58,8 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     mapping(address => Order[]) public userOrders;
     address public token;
     address public wallet;
+    address public referrals;
+    address public nodeDividends;
 
     // ===== pause 系统 =====
     bool public paused;
@@ -169,11 +183,6 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     //     return reward;
     // }
 
-    function claim(address user, uint256 orderIndex, Types.Send[] memory sendInfos) external{
-        // 1.提取收益时首先通过claimInterval判断是否到收益领取时间点，在到时间点其24小时内可以领取，否则等下一个周期或者到期24小时内领取
-        // 2.
-    }
-
     // ================= UNSTAKE =================
     function unstake(address user, uint256 index) external {
         _applyPause(user, index);
@@ -266,6 +275,25 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         if (payout > 0) {
             TransferHelper.safeTransfer(USDT, user, payout);
         }
+    }
+
+    function reStake(address user, uint256 orderIndex) external {
+        // 1.已赎回的订单不允许重新质押
+        // 2.超过12个月的不允许重新质押
+        // 3.未到期的不允许重新质押
+        // 4.重新质押stakeIndex只能大于等于
+        // 5.订单到期后24小时内重新质押，则将orderIndex收益打给用户，避免数据错乱
+        // 6.订单到期后且超过了24小时，把用户未领取的订单收益清0，也就是不打给用户
+        // 7.领取的收益：
+        // 7.1 60%打给用户
+        // 7.2 35%分给7个不同的级别，IReferrals(referrals).calcLevelAward(user, amount)获取要分配的地址，然后按照地址和数量打币
+        // 7.2 1.5%给节点分红，调用IDividends.updateFarm
+        // 7.3 剩余的打给指定地址wallet
+        // 8.如果收益大于0：
+        // 8.1 uint256 amountToken = getAmountOut(收益数量)，返回token数量
+        // 8.2 _exchange(token, USDT, amountToken, address(this))，将计算后的token数量进行兑换
+        // 8.3 ILex(token).specialWithdraw(amountToken);必须要调用
+        // 8.4 所有币是usdt全部给地址地址，包括级别等等
     }
 
     // ===================internal/external view ==================================

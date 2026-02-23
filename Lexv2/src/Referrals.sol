@@ -12,10 +12,6 @@ interface ILexv1{
     function getParent(address user) external view returns(address);
 }
 
-interface IVault{
-    function claim(address user, uint256 orderIndex) external returns(uint256);
-}
-
 contract Referrals is Initializable, OwnableUpgradeable, UUPSUpgradeable{
     using EnumerableSet for EnumerableSet.AddressSet;
     mapping(address => EnumerableSet.AddressSet) private directReferralAddrSets;
@@ -181,7 +177,7 @@ contract Referrals is Initializable, OwnableUpgradeable, UUPSUpgradeable{
     //也就是我们这里只看直推地址的performance+totalUserStaked
     //比如有10个直推地址，那么performance+totalUserStaked值最大的地址就是大区
     //小区总业绩就等于除上述大区外的所有直推地址performance+totalUserStaked总和
-    function getEffectivePerformance(address user) public view returns(uint256){
+    function _getEffectivePerformance(address user) internal view returns(uint256){
         uint256 length = directReferralAddrSets[user].length();
         if (length == 0) return 0;
 
@@ -209,19 +205,104 @@ contract Referrals is Initializable, OwnableUpgradeable, UUPSUpgradeable{
 
         return total - maxBranch;
     }
+
+    struct Effective{
+        Types.LevelType level;
+        address user;
+        uint256 amount;
+    }
+
+    function getEffectivePerformance(address[] memory users)
+        external
+        view
+        returns (Effective[] memory)
+    {
+        uint256 len = users.length;
+        Effective[] memory result = new Effective[](len);
+
+        for (uint256 i = 0; i < len; i++) {
+            address user = users[i];
+
+            result[i] = Effective({
+                level: referralInfo[user].level,
+                user: user,
+                amount: _getEffectivePerformance(user)
+            });
+        }
+
+        return result;
+    }
+
+    function calcLevelAward(address user, uint256 amount)
+        external
+        view
+        returns (Types.Revenue[] memory)
+    {
+        // 最多 8 个奖励（直推 + L1~L7）
+        Types.Revenue[] memory temp = new Types.Revenue[](8);
+        uint256 count;
+
+        address current = referralInfo[user].parent;
+
+        uint16 lastPercent; // 已发最高等级比例
         
 
-    function processClaimInfo(address user, uint256 orderIndex) external{
-        // - 收益的60%给到自己，35%给到动态分配，2%买子币放着，1.5%给节点分红，1.5%指定地址
-        uint256 currentAward = IVault(vault).claim(user, orderIndex);
-        uint256 stakingAward = currentAward * 60 / 100;
-        uint256 levelAward = currentAward * 35 / 100;
-        uint256 nodeAward = currentAward * 15 / 1000;
-        // uint256 amountWallet = IERC20();
-        // 1.给直推5%，这个保持不变
-        // 2.级别奖励会出现极差的情况，比如首先碰到了L6，那么在L6之上低于L6的级别都不会再有奖励，只有L7会有，以此类推
-        // 3.收益数量从Vault中调用claim获得
-    }    
+        // =========================
+        // 1️⃣ 直推奖励 5%
+        // =========================
+        if (current != address(0)) {
+            if (totalUserStaked[current] >= 200e18) {
+                uint256 reward = (amount * percentsForAward[0]) / 35;
+
+                temp[count++] = Types.Revenue({
+                    user: current,
+                    amount: reward
+                });
+            }
+        }
+
+        // =========================
+        // 2️⃣ 等级奖励（级差 + 截断）
+        // =========================
+        while (current != address(0)) {
+            Types.LevelType level = referralInfo[current].level;
+
+            if (level != Types.LevelType.INVALID) {
+                uint16 levelPercent = percentsForAward[uint8(level)];
+
+                if (levelPercent > lastPercent) {
+                    uint16 diffPercent = levelPercent - lastPercent;
+
+                    uint256 reward = (amount * diffPercent) / 35;
+
+                    temp[count++] = Types.Revenue({
+                        user: current,
+                        amount: reward
+                    });
+
+                    lastPercent = levelPercent;
+
+                    // 到 30% 截断
+                    if (lastPercent == percentsForAward[7]) {
+                        break;
+                    }
+                }
+            }
+
+            current = referralInfo[current].parent;
+        }
+
+        // =========================
+        // 3️⃣ 精确长度返回
+        // =========================
+        Types.Revenue[] memory result = new Types.Revenue[](count);
+
+        for (uint256 i = 0; i < count; i++) {
+            result[i] = temp[i];
+        }
+
+        return result;
+    }
 
 }
     // 自己质押总额要大于1000usdt，有效直推大于三个人：
