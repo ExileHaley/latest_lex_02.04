@@ -7,7 +7,9 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 
 contract NodeDividends is Initializable, OwnableUpgradeable, UUPSUpgradeable{
 
-
+    struct User{
+        uint256 multiple;
+    }
     // Authorize contract upgrades only by the owner
     function _authorizeUpgrade(address newImplementation) internal view override onlyOwner(){}
 
