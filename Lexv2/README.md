@@ -16,3 +16,8 @@ $ forge install openzeppelin/openzeppelin-contracts-upgradeable  --no-git
 ```shell
 $ forge script script/Deploy.s.sol -vvv --rpc-url=https://bsc.blockrazor.xyz --broadcast --private-key=[privateKey]
 ```
+
+
+
+
+
