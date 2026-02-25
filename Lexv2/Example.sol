@@ -4,12 +4,91 @@ pragma solidity ^0.8.20;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {ILAXToken} from "./interface/ILAXToken.sol";
-import {IReferral} from "./interface/IReferral.sol";
-import {IProject} from "./interface/IProject.sol";
 import {Owned} from "solmate/src/auth/Owned.sol";
-import {_USDT} from "./Const.sol";
-import {IStaking} from "./interface/IStaking.sol";
+
+address constant _USDT = 0x55d398326f99059fF775485246999027B3197955;
+address constant _ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+
+interface IProject {
+    function dividendWallet() external view returns (address);
+    function marketingAddress() external view returns (address);
+    function ecosystemAddress() external view returns (address);
+}
+
+interface IReferral{
+    event BindReferral(address indexed user,address parent);
+    function getReferral(address _address)external view returns(address);
+    function isBindReferral(address _address) external view returns(bool);
+    function getReferralCount(address _address) external view returns(uint256);
+    function bindReferral(address _referral,address _user) external;
+    function getReferrals(address _address,uint256 _num) external view returns(address[] memory);
+    function getRootAddress()external view returns(address);
+    function batchImportReferrals(address[] calldata users,address[] calldata referrals) external;
+}
+
+interface ILAXToken is IERC20 {
+    function getYesterdayCloseReserveU() external view returns (uint112);
+    function getCurrentReserveU() external view returns (uint112);
+    function uniswapV2Pair() external view returns (address);
+    function recycle(uint256 amount) external;
+}
+
+interface IStaking {
+    // ============ Structs ============
+    struct Record {
+        uint40 stakeTime;
+        uint160 amount;
+        uint8 stakeIndex;
+        uint40 unstakeTime;
+        uint160 reward;
+        uint40 restakeTime;
+    }
+
+    struct Config {
+        uint256 rate;
+        uint40 day;
+        uint40 ttl;
+    }
+
+     // ============ Events ============
+    event Staked(
+        address indexed user,
+        uint160 amount,
+        uint40 timestamp,
+        uint256 index,
+        uint40 stakeTime
+    );
+
+    event RewardPaid(
+        address indexed user,
+        uint160 reward,
+        uint40 timestamp,
+        uint256 index
+    );
+
+    event Unstaked(
+        address indexed user,
+        uint160 amount,
+        uint40 timestamp,
+        uint256 index,
+        uint160 reward,
+        uint40 ttl
+    );
+
+    event Restaked(address indexed user, uint40 timestamp, uint256 index);
+
+    event Transfer(address indexed from, address indexed to, uint256 amount);
+
+    // ============ View Functions ============
+    function userOneDayStaked(address user) external view returns (bool);
+    function getStakeRecord(address user, uint256 index) external view returns (Record memory);
+
+    // ============ Core Functions (Called by Queue) ============
+    function stakeFor(address user, uint160 amount, uint8 stakeIndex) external;
+    function unstakeFor(address user, uint256 index) external returns (uint256 actualAmount);
+    function restakeFor(address user, uint256 _index, uint160 _amount, uint8 _stakeIndex) external;
+    function claimFor(address user, uint256 _index) external;
+}
 
 contract Queue is Owned, Pausable, ReentrancyGuard {
     // ============ Events ============
