@@ -92,12 +92,31 @@ contract Recharge is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentra
     }
 
     function batchImport(address[] memory users) external onlyOwner {
-
         for (uint i = 0; i < users.length; i++) {
-            User storage u  = userInfo[users[i]];
-            _processReferral(users[i], nodePrice[u.nodeType]);
+            _processAward(users[i]);
         }
     }
+
+
+    function _processAward(
+        address user
+    ) internal {
+        address current = userInfo[user].recommender;
+        uint256 depth = 0;
+
+        while (current != address(0) && depth < MAX_REFERRAL_DEPTH) {
+            if (current == user) break;
+            User storage u = userInfo[current];
+            if(u.award > 0){
+                u.award = 0;
+                u.extracted = 0;
+                delete recordAwardInfo[current];
+            }
+            current = userInfo[current].recommender;
+            depth++;
+        }
+    }
+
 
     function referral(address recommender) external Pause {
         require(initialCode != msg.sender, "Initial code cannot register.");
