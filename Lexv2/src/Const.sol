@@ -1,0 +1,5 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+address constant USDT = 0x55d398326f99059fF775485246999027B3197955;
+address constant VENUS = 0xfD5840Cd36d94D7229439859C0112a4185BC0255;

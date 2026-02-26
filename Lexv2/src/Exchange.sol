@@ -6,6 +6,7 @@ import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/O
 import { IUniswapV2Router02 } from "./interfaces/IUniswapV2Router02.sol";
 import { TransferHelper } from "./libraries/TransferHelper.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./const.sol";
 
 interface IVenus {
     function mint(uint mintAmount) external returns (uint);
@@ -18,10 +19,10 @@ contract Exchange is Initializable, OwnableUpgradeable, UUPSUpgradeable{
     IUniswapV2Router02 public constant pancakeRouter =
         IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
 
-    address public constant USDT =
-        0x55d398326f99059fF775485246999027B3197955;
+    // address public constant USDT =
+    //     0x55d398326f99059fF775485246999027B3197955;
 
-    address public constant VENUS = 0xfD5840Cd36d94D7229439859C0112a4185BC0255;
+    // address public constant VENUS = 0xfD5840Cd36d94D7229439859C0112a4185BC0255;
 
     mapping(address => mapping(address => uint256)) public availableLimit;
     address public lex;

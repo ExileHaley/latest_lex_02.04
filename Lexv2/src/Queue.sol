@@ -15,5 +15,6 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentrancy
         __Ownable_init(_msgSender());
     }
     
+    //排队 => 路由合约
     
 }

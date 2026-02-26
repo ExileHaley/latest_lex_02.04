@@ -11,6 +11,8 @@ import { TransferHelper } from "./libraries/TransferHelper.sol";
 import { Types } from "./libraries/Types.sol";
 import { TreasuryRules } from "./libraries/TreasuryRules.sol";
 
+import "./const.sol";
+
 interface ILex {
     function specialWithdraw(uint256 amount) external;
 }
@@ -30,8 +32,8 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     IUniswapV2Router02 public constant pancakeRouter =
         IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
 
-    address public constant USDT =
-        0x55d398326f99059fF775485246999027B3197955;
+    // address public constant USDT =
+    //     0x55d398326f99059fF775485246999027B3197955;
 
     mapping(uint8 => TreasuryRules.StakePlan) public stakePlans;
     mapping(address => TreasuryRules.Order[]) public userOrders;
@@ -109,6 +111,7 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     function stake(address user, uint256 amount, uint8 stakeIndex) external onlyQueue{
         if(stakeIndex == 0) {
+            require(amount <= 100e18, "Exceeding the trial limit.");
             require(!notEligible[user][stakeIndex], "Reuse trial qualification.");
             notEligible[user][stakeIndex] = true;
         }
@@ -537,7 +540,6 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
 }
-
 
 // 整体合约需求：
 // 1. stakeIndex == 0，
