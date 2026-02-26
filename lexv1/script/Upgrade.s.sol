@@ -9,7 +9,7 @@ contract UpgradeScript is Script{
     Recharge public recharge;
 
     function setUp() public {
-        recharge = Recharge(payable(0xe09996cf31098462A38e6FaA232fB16FB878f2Ee));
+        recharge = Recharge(payable(0x285Ca769Ab57CBB623513921C9a9B3a8fd8F936A));
     }
 
     function run() public {

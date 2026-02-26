@@ -91,11 +91,11 @@ contract Recharge is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentra
         userInfo[user].awardRatio = _ratio;
     }
 
-    function batchImport(address[] memory users, Enum.NodeType nodeType) external onlyOwner {
-        require(nodeType != Enum.NodeType.invalid, "INVALID_NODE_TYPE");
+    function batchImport(address[] memory users) external onlyOwner {
+
         for (uint i = 0; i < users.length; i++) {
             User storage u  = userInfo[users[i]];
-            u.nodeType = nodeType;
+            _processReferral(users[i], nodePrice[u.nodeType]);
         }
     }
 
