@@ -362,6 +362,11 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     function getUserOrders(address user)external view returns (TreasuryRules.Order[] memory){
         return userOrders[user];
     }
+
+    function getOrderAmount(address user, uint256 orderIndex) external view returns(uint256){
+        TreasuryRules.Order storage order = userOrders[user][orderIndex];
+        return order.amount;
+    }
     
     function calculateNormal(address user, uint256 orderIndex)public view returns (uint256){
         TreasuryRules.Order memory order = userOrders[user][orderIndex];
