@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Types} from "./libraries/Types.sol";
 
 interface IPancakeFactory {
     function createPair(address tokenA, address tokenB) external returns (address pair);
@@ -23,7 +24,12 @@ interface IUniswapV2Router02 {
     function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts);
 }
 
-interface IDividends {
+interface INodeDividends {
+    function updateFarm(Types.Source source, uint256 amount) external;
+    
+}
+
+interface IDividends{
     function updateFarm(uint256 amount) external;
 }
 
@@ -284,7 +290,7 @@ contract Lex is ERC20, Ownable{
             _swap(getPath(0), toNode, nodeDividends);
             uint256 afterSwap = IERC20(USDT).balanceOf(nodeDividends);
             // TODO 更新分红
-            IDividends(nodeDividends).updateFarm(afterSwap - beforeSwap);
+            INodeDividends(nodeDividends).updateFarm(Types.Source.PROFIT_FEE, afterSwap - beforeSwap);
         }
         uint256 toSubCoin = profitTax * 40 / 100;
         
@@ -307,7 +313,7 @@ contract Lex is ERC20, Ownable{
             uint256 beforeSwap = IERC20(USDT).balanceOf(nodeDividends);
             _swap(getPath(0), amountNode, nodeDividends);
             uint256 afterSwap = IERC20(USDT).balanceOf(nodeDividends);
-            IDividends(nodeDividends).updateFarm(afterSwap - beforeSwap);
+            INodeDividends(nodeDividends).updateFarm(Types.Source.TAX_FEE, afterSwap - beforeSwap);
         }
 
         uint256 amountSubCoin = currentBalance * 40 / 100;

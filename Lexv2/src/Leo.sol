@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Types} from "./libraries/Types.sol";
 
 interface IPancakeFactory {
     function createPair(address tokenA, address tokenB) external returns (address pair);
@@ -24,7 +25,7 @@ interface IUniswapV2Router02 {
 
 
 interface IDividends {
-    function updateFarm(uint256 amount) external;
+    function updateFarm(Types.Source source, uint256 amount) external;
 }
 
 interface IUniswapV2Pair {
@@ -44,7 +45,6 @@ contract Leo is ERC20, Ownable{
 
     address public wallet;
     address public nodeDividends;
-    address public subCoinDividends;
 
     bool    private swapping;
     bool    public burnFinished;
@@ -80,11 +80,6 @@ contract Leo is ERC20, Ownable{
     function setNodeDividends(address _nodeDividends) external onlyOwner{
         nodeDividends = _nodeDividends;
         allowlist[_nodeDividends] = true;
-    }
-
-    function setSubCoinDividends(address _subCoinDividends) external onlyOwner{
-        subCoinDividends = _subCoinDividends;
-        allowlist[_subCoinDividends] = true;
     }
 
     function setRate(uint256 _buyRate) external onlyOwner{
@@ -187,16 +182,13 @@ contract Leo is ERC20, Ownable{
         uint256 swapAmount = contractBalance * 40 / 100;
         uint256 walletAmount = contractBalance - subAmount - swapAmount;
 
-        if (subCoinDividends != address(0) && subAmount > 0) {
-            super._update(address(this), subCoinDividends, subAmount);
-            IDividends(subCoinDividends).updateFarm(subAmount);
-        }
+        super._update(address(this), wallet, subAmount);
 
         if (nodeDividends != address(0) && swapAmount > 0) {
             uint256 beforeSwap = IERC20(USDT).balanceOf(nodeDividends);
             _swap(swapAmount, nodeDividends);
             uint256 afterSwap = IERC20(USDT).balanceOf(nodeDividends);
-            IDividends(nodeDividends).updateFarm(afterSwap - beforeSwap);
+            IDividends(nodeDividends).updateFarm(Types.Source.TAX_FEE, afterSwap - beforeSwap);
         }
 
         if (wallet != address(0) && walletAmount > 0) {
