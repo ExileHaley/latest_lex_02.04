@@ -10,4 +10,11 @@ library Types{
         address user;
         uint256 amount;
     }
+
+    struct DirectReferral{
+        address user;
+        uint256 staked;
+        uint256 performance;
+    }
+    
 }

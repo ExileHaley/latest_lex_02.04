@@ -28,7 +28,6 @@ contract Referrals is Initializable, OwnableUpgradeable, UUPSUpgradeable{
     struct Referral {
         address parent;        // 20 bytes
         Types.LevelType level;      // 1 byte (uint8 enum)
-        bool valid;             // 1 byte
         uint16 referralNum;     // 2 bytes
         uint256 performance;    // 32 bytes
     }
@@ -303,6 +302,29 @@ contract Referrals is Initializable, OwnableUpgradeable, UUPSUpgradeable{
 
         return result;
     }
+
+    //获取directReferralAddrSets中的地址数据
+    function getDirectReferralInfo(address user) 
+        external 
+        view 
+        returns(Types.DirectReferral[] memory) 
+    {
+        uint256 length = directReferralAddrSets[user].length();
+        Types.DirectReferral[] memory result = new Types.DirectReferral[](length);
+
+        for (uint256 i = 0; i < length; i++) {
+            address child = directReferralAddrSets[user].at(i);
+
+            result[i] = Types.DirectReferral({
+                user: child,
+                staked: totalUserStaked[child],
+                performance: referralInfo[child].performance
+            });
+        }
+
+        return result;
+    }
+
 
 }
     // 自己质押总额要大于1000usdt，有效直推大于三个人：

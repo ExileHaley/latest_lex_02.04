@@ -37,7 +37,7 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     mapping(uint8 => TreasuryRules.StakePlan) public stakePlans;
     mapping(address => TreasuryRules.Order[]) public userOrders;
-    mapping(address => mapping(uint256 => bool)) public notEligible;
+    // mapping(address => mapping(uint256 => bool)) public notEligible;
 
     address public token;
     address public wallet;
@@ -110,11 +110,6 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function stake(address user, uint256 amount, uint8 stakeIndex) external onlyQueue{
-        if(stakeIndex == 0) {
-            require(amount <= 100e18, "Exceeding the trial limit.");
-            require(!notEligible[user][stakeIndex], "Reuse trial qualification.");
-            notEligible[user][stakeIndex] = true;
-        }
         addLiquidity(amount);
         TreasuryRules.Order memory order = TreasuryRules.Order({
             amount: uint128(amount),
