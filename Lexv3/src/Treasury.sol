@@ -28,6 +28,7 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
 
     address public token;
     address public wallet;
+    
     address public referrals;
     address public nodeDividends;
     address public queue;

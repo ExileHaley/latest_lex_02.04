@@ -267,7 +267,6 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
     //调用ITreasury.claim(user, orderIndex)提取收益
     function claim(address user, uint256 orderIndex) external onlyRouter {
         _checkCircuitBreaker(); // 先检查是否熔断
-
         // 调用 Treasury 合约提取收益
         ITreasury(treasury).claim(user, orderIndex);
     }

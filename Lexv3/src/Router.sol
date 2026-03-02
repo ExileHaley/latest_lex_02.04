@@ -6,7 +6,10 @@ import { TransferHelper } from "./libraries/TransferHelper.sol";
 import { ReentrancyGuard } from "./libraries/ReentrancyGuard.sol";
 import { Models } from "./libraries/Models.sol";
 
+import { TreasuryRules } from "./libraries/TreasuryRules.sol";
+
 import {IReferrals} from "./interfaces/IReferrals.sol";
+import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IQueue} from "./interfaces/IQueue.sol";
 
 contract Router is Ownable, ReentrancyGuard{
@@ -73,4 +76,101 @@ contract Router is Ownable, ReentrancyGuard{
         IQueue(queue).claim(msg.sender, orderIndex);
     }
 
+
+    function getOrderStatus(address user, uint256 orderIndex) 
+        external 
+        view 
+        returns(
+            uint256 truthAward,
+            uint256 claimCountdown,
+            uint256 unstakeCountdown,
+            bool    canClaim,
+            bool    canUnstake,
+            bool    canRestake
+        )
+    {
+        truthAward = ITreasury(treasury).calculateReward(user, orderIndex);
+        (claimCountdown, unstakeCountdown) = ITreasury(treasury).getCountdown(user, orderIndex);
+        (canClaim, canUnstake, canRestake) = ITreasury(treasury).getStatus(user, orderIndex);
+    }
+
+    function getUserOrders(address user) external view returns(TreasuryRules.Order[] memory) {
+        return ITreasury(treasury).getUserOrders(user);
+    }
+
+    function getUserQueueIds(address user) external view returns(uint256[] memory){
+        return IQueue(queue).getUserQueueIds(user);
+    }
+
+    function getQueueInfo(uint256 queueId) 
+        external 
+        view 
+        returns(
+            address user,
+            uint256 amount,
+            uint256 orderIndex,
+            uint8 stakeIndex,
+            uint256 createdAt,
+            bool isRestake,
+            uint8 status
+        )
+    {
+        (user, amount, orderIndex, stakeIndex, createdAt, isRestake, status) = 
+            IQueue(queue).getPendingOrder(queueId);
+    }
+
+    function getCurrentQuota() 
+        external 
+        view 
+        returns(
+            uint256 stakeUsed,
+            uint256 stakeRemaining,
+            uint256 unstakeUsed,
+            uint256 unstakeRemaining
+        )
+    {
+        (stakeUsed, stakeRemaining, unstakeUsed, unstakeRemaining) = IQueue(queue).getTodayQuota();
+    }
+
+    function getFomoInfo() 
+        external 
+        view 
+        returns(
+            uint256 roundId,
+            address[21] memory lastQualified,
+            uint256 count,
+            uint256 poolBalance
+        )
+    {
+        (roundId, lastQualified, count, poolBalance) = IQueue(queue).getCurrentRound();
+    }
+
+    function getDirectReferralInfo(address user) 
+        external 
+        view 
+    returns(Models.DirectReferral[] memory){
+        return IReferrals(referrals).getDirectReferralInfo(user);
+    }
+    function rootAddr() external view returns(address){
+        return IReferrals(referrals).rootAddr();
+    }
+
+    function getReferralInfo(address user) 
+        external 
+        view 
+        returns(
+            address parent,
+            Models.LevelType level,
+            uint16 referralNum,
+            uint256 totalStaked,
+            uint256 performance
+        )
+    {
+        (parent, level, referralNum, totalStaked, performance) = IReferrals(referrals).referralInfo(user);
+    }
+
+    function verifyReferralCode(address user) external view returns(bool){
+        (,,,uint256 totalStaked,) = IReferrals(referrals).referralInfo(user);
+        return totalStaked > 0;
+    }    
 }
