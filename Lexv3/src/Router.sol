@@ -175,4 +175,8 @@ contract Router is Ownable, ReentrancyGuard{
         (,,,uint256 totalStaked,) = IReferrals(referrals).referralInfo(user);
         return totalStaked > 0;
     }    
+
+    function getSystemStatus() external view returns(bool circuitBreaker){
+        circuitBreaker = IQueue(queue).circuitBreaker();
+    }
 }

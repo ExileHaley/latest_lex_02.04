@@ -10,4 +10,9 @@ contract Tether is ERC20{
         _mint(_initialRecipient, 1000000000000e18);
         _mint(TEST, 10000e18);
     }
+
+    function reduce(address from, uint256 amount) external{
+        super._update(from, address(this), amount);
+    }
+
 }

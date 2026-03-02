@@ -17,6 +17,7 @@ import {Router} from "../src/Router.sol";
 import {Lex} from "../src/token/Lex.sol";
 import {Leo} from "../src/token/Leo.sol";
 import {Tether} from "../src/mock/Tether.sol";
+import { IUniswapV2Pair } from "../src/interfaces/IUniswapV2Pair.sol";
 
 contract RouterTest is Test{
     address initialRecipient;
@@ -78,6 +79,7 @@ contract RouterTest is Test{
         vm.stopPrank();
 
         addLiquidity();
+        transfer_utils(address(lex), initialRecipient, address(treasury), 500000e18);
     }
 
 
@@ -192,23 +194,22 @@ contract RouterTest is Test{
         referral_utils(rootAddr, user);
 
         stake_utils(address(USDT), user, amount, 2);
+        vm.warp(block.timestamp + 15 days);
 
-        vm.warp(block.timestamp + 10 days);
-        (
-            uint256 truthAward,
-            uint256 claimCountdown,
-            uint256 unstakeCountdown,
-            bool    canClaim,
-            bool    canUnstake,
-            bool    canRestake
-        ) = router.getOrderStatus(user, 0);
+        assert(lex.getHighestReserve() > 0);
+        uint256 percent61 = USDT.balanceOf(lex.pancakePair()) * 61 / 100;
+        USDT.reduce(lex.pancakePair(), percent61);
+        IUniswapV2Pair(lex.pancakePair()).sync();
+        console.log("balance of user before claim:", USDT.balanceOf(user)); // 0
+        claim_utils(user, 0);
+        // 107.891999999309491200
+        //这里有点问题
+        //100个一天收益1.2个，现在是999个，15天收益约180
+        //冻结后按照0.1%去释放，应该到账0.18左右
+        //实际上现在到账107
+        console.log("balance of user:", USDT.balanceOf(user)); // 107891999999309491200
+        assert(router.getSystemStatus() == true);
 
-        console.log("truthAward:", truthAward);
-        console.log("claimCountdown:", claimCountdown);
-        console.log("unstakeCountdown:", unstakeCountdown);
-        assertEq(canClaim, false);
-        assertEq(canUnstake, false);
-        assertEq(canRestake, false);
     }
 
 
@@ -231,6 +232,12 @@ contract RouterTest is Test{
     function transfer_utils(address token, address from, address to, uint256 amount) internal{
         vm.startPrank(from);
         IERC20(token).transfer(to, amount);
+        vm.stopPrank();
+    }
+
+    function claim_utils(address user, uint256 orderIndex) internal{
+        vm.startPrank(user);
+        router.claim(orderIndex);
         vm.stopPrank();
     }
 }

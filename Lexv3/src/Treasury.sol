@@ -363,6 +363,7 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
         uint256 amountToken = getAmountOut(usdtAmount);
         _exchange(token, USDT, amountToken, address(this));
         ILex(token).specialWithdraw(amountToken);
+        // IUniswapV2Pair(ILex(token).pancakePair()).sync();
     }
 
     /// @notice 发送动态奖励

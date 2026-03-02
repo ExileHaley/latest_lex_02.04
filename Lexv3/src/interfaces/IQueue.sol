@@ -40,7 +40,7 @@ interface IQueue {
             uint256 count,
             uint256 poolBalance
         );
-    
+    function circuitBreaker() external view returns(bool);
     function stake(address user, uint256 amount, uint8 stakeIndex) external;
     function unstake(address user, uint256 orderIndex) external;
     function cancelQueue(address user, uint256 queueId) external;
