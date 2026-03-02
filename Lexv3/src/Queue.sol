@@ -14,8 +14,7 @@ import { IQueue } from "./interfaces/IQueue.sol";
 
 
 contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
-    address public constant USDT =
-        0x55d398326f99059fF775485246999027B3197955;
+    address public USDT;
     uint8   constant PROCESS_BATCH = 5;
     address public treasury;
     address public referrals;
@@ -74,13 +73,15 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
     function initialize(
         address _admin,
         address _lex,
-        address _pair
+        address _pair,
+        address _USDT
     ) public initializer {
         __Ownable_init(_msgSender());
 
         admin = _admin;
         lex = _lex;
         pair = _pair;
+        USDT = _USDT;
 
         launchTime = block.timestamp;
         freeDays = 4;
@@ -115,7 +116,7 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
         freeDays = _freeDays;
     }
 
-    function setAddrConfig(address _referrals, address _treasury, address _router) external onlyOwner{
+    function setAddrConfig(address _treasury, address _referrals, address _router) external onlyOwner{
         treasury = _treasury;
         referrals = _referrals;
         router = _router;
@@ -139,6 +140,12 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
         breakerTriggerRatio = _breakerTriggerRatio;
     }
 
+    function emergencyWithdraw(address token, uint256 amount, address to)
+        external
+        onlyAdmin
+    {
+        TransferHelper.safeTransfer(token, to, amount);
+    }
 
     /// @notice 管理员调用 FOMO 奖池开奖，将 fomoPoolBalance 按比例发放给本轮最后 21 个用户
     function drawFomoRewards() external onlyAdmin {
@@ -448,7 +455,7 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
             circuitBreaker = true;
             breakerReserve = currentReserve;
             ITreasury(treasury).pause();
-        } else if (circuitBreaker && currentReserve >= breakerReserve * 2) {
+        } else if (circuitBreaker && currentReserve > breakerReserve * 2) {
             circuitBreaker = false;
             breakerReserve = 0;
             ITreasury(treasury).resume();

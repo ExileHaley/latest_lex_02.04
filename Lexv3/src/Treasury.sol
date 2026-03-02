@@ -20,18 +20,17 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
     IUniswapV2Router02 public constant pancakeRouter =
         IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
 
-    address public constant USDT =
-        0x55d398326f99059fF775485246999027B3197955;
-
     mapping(uint8 => TreasuryRules.StakePlan) public stakePlans;
     mapping(address => TreasuryRules.Order[]) public userOrders;
 
     address public token;
     address public wallet;
+    address public admin;
     
     address public referrals;
     address public nodeDividends;
     address public queue;
+    address public USDT;
 
     bool   public paused;
     uint32 public pauseTime;
@@ -40,10 +39,12 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
 
     function _authorizeUpgrade(address newImplementation)internal view override onlyOwner{}
 
-    function initialize(address _token, address _wallet) public initializer {
+    function initialize(address _admin, address _token, address _wallet, address _USDT) public initializer {
         __Ownable_init(_msgSender());
+        admin = _admin;
         token = _token;
         wallet = _wallet;
+        USDT = _USDT;
         releaseRatePerDay = 1e15; // 冻结释放 0.1%
         uint256 day = 1 days;
 
@@ -71,6 +72,11 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
 
     modifier onlyQueue() {
         require(queue == msg.sender, "Not permit.");
+        _;
+    }
+
+    modifier onlyAdmin() {
+        require(admin == msg.sender, "Not permit.");
         _;
     }
 
@@ -565,5 +571,11 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
         stakeIndex = order.stakeIndex;
     }
 
-
+    function emergencyWithdraw(address _token, uint256 _amount, address _to)
+        external
+        onlyAdmin
+    {   
+        require(_token == token || _token == USDT);
+        TransferHelper.safeTransfer(_token, _to, _amount);
+    }
 }

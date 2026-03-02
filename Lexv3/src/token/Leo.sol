@@ -28,6 +28,10 @@ interface IDividends {
     function updateFarm(Models.Source source, uint256 amount) external;
 }
 
+interface IPayback {
+    function updateFarm(uint256 amount) external;
+}
+
 interface IUniswapV2Pair {
     function sync() external;
 }
@@ -45,6 +49,7 @@ contract Leo is ERC20, Ownable{
 
     address public wallet;
     address public nodeDividends;
+    address public payback;
 
     bool    private swapping;
     bool    public burnFinished;
@@ -55,18 +60,15 @@ contract Leo is ERC20, Ownable{
 
     constructor(
         address _initialRecipient, 
-        address _wallet, 
-        address _nodeDividends, 
+        address _wallet,
         address _USDT
     )ERC20("LEO","LEO")Ownable(msg.sender){
         _mint(_initialRecipient, 21000000e18);
         
         allowlist[_initialRecipient] = true;
         allowlist[_wallet] = true;
-        allowlist[_nodeDividends] = true;
 
         wallet = _wallet;
-        nodeDividends = _nodeDividends;
         USDT = _USDT;
 
         lastBurnTime = block.timestamp;
@@ -75,11 +77,14 @@ contract Leo is ERC20, Ownable{
             .createPair(address(this), USDT);
     }
 
-    
-
     function setNodeDividends(address _nodeDividends) external onlyOwner{
         nodeDividends = _nodeDividends;
         allowlist[_nodeDividends] = true;
+    }
+
+    function setPaybackAddr(address _payback) external onlyOwner{
+        payback = _payback;
+        allowlist[payback] = true;
     }
 
     function setRate(uint256 _buyRate) external onlyOwner{
@@ -182,7 +187,12 @@ contract Leo is ERC20, Ownable{
         uint256 swapAmount = contractBalance * 40 / 100;
         uint256 walletAmount = contractBalance - subAmount - swapAmount;
 
-        super._update(address(this), wallet, subAmount);
+        if(payback != address(0) && subAmount > 0){
+            super._update(address(this), payback, subAmount);
+            IPayback(payback).updateFarm(subAmount);
+        }else{
+            super._update(address(this), wallet, subAmount);
+        }
 
         if (nodeDividends != address(0) && swapAmount > 0) {
             uint256 beforeSwap = IERC20(USDT).balanceOf(nodeDividends);

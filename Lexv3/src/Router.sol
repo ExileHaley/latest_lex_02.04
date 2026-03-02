@@ -13,8 +13,7 @@ import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IQueue} from "./interfaces/IQueue.sol";
 
 contract Router is Ownable, ReentrancyGuard{
-    address public constant USDT =
-        0x55d398326f99059fF775485246999027B3197955;
+    address public USDT;
     uint256 public constant MIN_STAKE_AMOUNT = 2 ether;
     address public treasury;
     address public queue;
@@ -25,11 +24,13 @@ contract Router is Ownable, ReentrancyGuard{
     constructor(
         address _treasury, 
         address _queue, 
-        address _referrals
+        address _referrals,
+        address _USDT
     )Ownable(msg.sender){
         treasury = _treasury;
         queue = _queue;
         referrals = _referrals;
+        USDT = _USDT;
         maxValueOfStakeIndex[0] = 100e18;
     }
 
@@ -151,6 +152,7 @@ contract Router is Ownable, ReentrancyGuard{
     returns(Models.DirectReferral[] memory){
         return IReferrals(referrals).getDirectReferralInfo(user);
     }
+    
     function rootAddr() external view returns(address){
         return IReferrals(referrals).rootAddr();
     }

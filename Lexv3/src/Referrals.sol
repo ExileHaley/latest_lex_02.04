@@ -38,7 +38,6 @@ contract Referrals is Initializable, OwnableUpgradeable, UUPSUpgradeable, IRefer
     function initialize(
         address _rootAddr,
         address _lexv1
-        // address _vault
     ) public initializer {
         __Ownable_init(_msgSender());
         rootAddr = _rootAddr;

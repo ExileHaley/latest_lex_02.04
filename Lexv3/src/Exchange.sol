@@ -128,5 +128,10 @@ contract Exchange is Initializable, OwnableUpgradeable, UUPSUpgradeable{
     }
 
     
-    
+    function emergencyWithdraw(address token, uint256 amount, address to)
+        external
+        onlyAdmin
+    {
+        TransferHelper.safeTransfer(token, to, amount);
+    }
 }

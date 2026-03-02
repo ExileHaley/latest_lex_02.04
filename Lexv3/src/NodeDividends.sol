@@ -35,9 +35,6 @@ interface INodeDividendsV1 {
 // 如果user是partner，或者说stakingAmount == 5000e18，这里能获取的最大奖励值就是500e18 * 2
 
 contract NodeDividends is Initializable, OwnableUpgradeable, UUPSUpgradeable, INodeDividends{
-    address public constant USDT =
-        0x55d398326f99059fF775485246999027B3197955;
-    
     struct User{
         Models.NodeType nodeType;
         uint256 stakingAmount;
@@ -50,10 +47,12 @@ contract NodeDividends is Initializable, OwnableUpgradeable, UUPSUpgradeable, IN
 
     mapping(address => User) public userInfo;
 
-    address public NodeDividendsV1;
+    address public nodeDividendsV1;
     address public lex;
-    address public stake;
+
+    address public treasury;
     address public admin;
+    address public USDT;
 
     mapping(Models.Source => uint256) public perStakingAward;
     uint256 public decimals = 1e13;
@@ -68,12 +67,22 @@ contract NodeDividends is Initializable, OwnableUpgradeable, UUPSUpgradeable, IN
         onlyOwner
     {}
 
-    function initialize() public initializer {
+    function initialize(
+        address _lex,
+        address _nodeDividendsV1,
+        address _admin,
+        address _USDT
+    ) public initializer {
         __Ownable_init(_msgSender());
+        lex = _lex;
+        nodeDividendsV1 = _nodeDividendsV1;
+        lex = _lex;
+        admin = _admin;
+        USDT = _USDT;
     }
 
     modifier onlyFarm() {
-        require(lex == msg.sender || stake == msg.sender, "NOT_PERMIT.");
+        require(lex == msg.sender || treasury == msg.sender, "NOT_PERMIT.");
         _;
     }
 
@@ -82,6 +91,10 @@ contract NodeDividends is Initializable, OwnableUpgradeable, UUPSUpgradeable, IN
         _;
     }
 
+    function setTreasuryAddr(address _treasury) external onlyOwner{
+        treasury = _treasury;
+    }
+    
     /* ========== 总倍数函数 ========== */
 
     function _getTotalMultiple(Models.NodeType nodeType)
@@ -116,7 +129,7 @@ contract NodeDividends is Initializable, OwnableUpgradeable, UUPSUpgradeable, IN
 
             if(u.stakingAmount == 0){
                 (,Models.NodeType nodeType, uint256 stakingAmount) =
-                    INodeDividendsV1(NodeDividendsV1).getMigrateInfo(users[i]);
+                    INodeDividendsV1(nodeDividendsV1).getMigrateInfo(users[i]);
 
                 u.nodeType = nodeType;
                 u.stakingAmount = stakingAmount;
