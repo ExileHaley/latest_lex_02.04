@@ -186,8 +186,8 @@ contract RouterTest is Test{
         referral_utils(rootAddr, user);
         stake_utils(address(USDT), user, amount - 900e18, 0);
     }
-
-    function test_treasury_order() public {
+    // 旧订单冻结后释放测试
+    function test_freez_old_order_claim() public {
         uint256 amount = 1000e18;
         address user = address(5);
         transfer_utils(address(USDT), initialRecipient, user, amount);
@@ -196,23 +196,139 @@ contract RouterTest is Test{
         stake_utils(address(USDT), user, amount, 2);
         vm.warp(block.timestamp + 15 days);
 
-        assert(lex.getHighestReserve() > 0);
-        uint256 percent61 = USDT.balanceOf(lex.pancakePair()) * 61 / 100;
-        USDT.reduce(lex.pancakePair(), percent61);
-        IUniswapV2Pair(lex.pancakePair()).sync();
-        console.log("balance of user before claim:", USDT.balanceOf(user)); // 0
-        claim_utils(user, 0);
-        // 107.891999999309491200
-        //这里有点问题
-        //100个一天收益1.2个，现在是999个，15天收益约180
-        //冻结后按照0.1%去释放，应该到账0.18左右
-        //实际上现在到账107
-        console.log("balance of user:", USDT.balanceOf(user)); // 107891999999309491200
+        //执行冻结逻辑
+        freez_utils();
+
+        claim_utils(user, 0); 
         assert(router.getSystemStatus() == true);
+        assert(treasury.paused() == true);
+        vm.warp(block.timestamp + 1 days);
+
+        claim_utils(user, 0); 
+
+        (
+            uint256 truthAward,
+            uint256 claimCountdown,
+            uint256 unstakeCountdown,
+            bool    canClaim,
+            bool    canUnstake,
+            bool    canRestake
+        ) = router.getOrderStatus(user, 0);
+        console.log("balance of user after claim:", USDT.balanceOf(user));
+        console.log("truthAward:", truthAward);
+        console.log("claimCountdown:", claimCountdown);
+        console.log("unstakeCountdown:", unstakeCountdown);
+        console.log("canClaim:", canClaim);
+        console.log("canUnstake:", canUnstake);
+        console.log("canRestake:", canRestake);
+    }
+    
+    //冻结后质押的订单
+    function test_freez_new_order_claim() public {
+        freez_utils();
+        address user = address(5);
+        uint256 amount = 1000e18;
+        transfer_utils(address(USDT), initialRecipient, user, amount);
+        referral_utils(rootAddr, user);
+        stake_utils(address(USDT), user, amount, 3);
+        assert(router.getSystemStatus() == true);
+        assert(treasury.paused() == true);
+        vm.warp(block.timestamp + 10 days);
+        (
+            uint256 truthAward,
+            uint256 claimCountdown,
+            uint256 unstakeCountdown,
+            bool    canClaim,
+            bool    canUnstake,
+            bool    canRestake
+        ) = router.getOrderStatus(user, 0);
+        console.log("balance of user after claim:", USDT.balanceOf(user));
+        console.log("truthAward:", truthAward);
+        console.log("claimCountdown:", claimCountdown);
+        console.log("unstakeCountdown:", unstakeCountdown);
+        console.log("canClaim:", canClaim);
+        console.log("canUnstake:", canUnstake);
+        console.log("canRestake:", canRestake);
 
     }
 
+    //测试4天后额度以及质押
+    function test_after_4days_stake() public {
+        vm.warp(block.timestamp + 5 days);
+        address user = address(5);
+        uint256 amount = 1000e18;
+        transfer_utils(address(USDT), initialRecipient, user, amount);
+        referral_utils(rootAddr, user);
+        stake_utils(address(USDT), user, amount, 3);
+        console.log("USDT balance of pair:", USDT.balanceOf(lex.pancakePair()) / 1e18);
+        (
+            uint256 stakeUsed,
+            uint256 stakeRemaining,
+            uint256 unstakeUsed,
+            uint256 unstakeRemaining
+        ) = router.getCurrentQuota();
+        console.log("stakeQuotaUsed:", stakeUsed  / 1e18);
+        console.log("stakeRemaining:", stakeRemaining  / 1e18);
+        console.log("unstakeQuotaUsed:", unstakeUsed  / 1e18);
+        console.log("unstakeRemaining:", unstakeRemaining  / 1e18);
+    }
+    //测试排队
+    function test_queue() public {
+        vm.warp(block.timestamp + 5 days);
+        address user_test = address(5);
+        uint256 amount_test = 3000e18;
+        transfer_utils(address(USDT), initialRecipient, user_test, amount_test);
+        referral_utils(rootAddr, user_test);
+        stake_utils(address(USDT), user_test, amount_test, 3);
+        
 
+
+        address user2 = address(6);
+        uint256 amount2 = 1000e18;
+        transfer_utils(address(USDT), initialRecipient, user2, amount2);
+        referral_utils(rootAddr, user2);
+        stake_utils(address(USDT), user2, amount2, 3);
+        uint256[] memory queueIds2 = router.getUserQueueIds(user2);
+        assert(queueIds2.length == 0);
+        TreasuryRules.Order[] memory orders = router.getUserOrders(user2);
+        assert(orders[0].amount == 999e18);
+        assert(orders[0].startTime == block.timestamp);
+        assert(orders[0].createdAt == block.timestamp);
+        
+        uint256[] memory queueIds = router.getUserQueueIds(user_test);
+        console.log("queueIds.length:",queueIds.length);
+        vm.startPrank(user_test);
+        console.log("Before cancel queue balance:", USDT.balanceOf(user_test));
+        router.cancelQueue(queueIds[0]);
+        console.log("After cancel queue balance:", USDT.balanceOf(user_test));
+        vm.stopPrank();
+        (
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            uint8 status
+        ) = router.getQueueInfo(queueIds[0]);
+        assert(status == 2);
+
+    }
+    //测试赎回
+    function test_unstake() public {
+        address user = address(5);
+        uint256 amount = 1000e18;
+        uint8   stakeIndex = 3;
+        referral_and_stake(user, amount, stakeIndex);
+        vm.warp(block.timestamp + 95 days);
+        freez_utils();
+        vm.startPrank(user);
+        router.unstake(0);
+        console.log("After unstake balance of user:", USDT.balanceOf(user));
+        vm.stopPrank();
+
+    }  
+    
     /////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////UTILS///////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////
@@ -240,4 +356,24 @@ contract RouterTest is Test{
         router.claim(orderIndex);
         vm.stopPrank();
     }
+
+    function freez_utils() internal{
+        uint256 percent61 = USDT.balanceOf(lex.pancakePair()) * 61 / 100;
+        USDT.reduce(lex.pancakePair(), percent61);
+        IUniswapV2Pair(lex.pancakePair()).sync();
+    }
+
+    function unfreeze_utils() internal{
+        uint256 reminingUsdt = USDT.balanceOf(lex.pancakePair());
+        uint256 toAmount = reminingUsdt * 2;
+        transfer_utils(address(USDT), initialRecipient, lex.pancakePair(), toAmount);
+        IUniswapV2Pair(lex.pancakePair()).sync();
+    }
+    
+    function referral_and_stake(address user, uint256 amount, uint8 stakeIndex)internal{
+        referral_utils(rootAddr, user);
+        transfer_utils(address(USDT), initialRecipient, user, amount);
+        stake_utils(address(USDT), user, amount, stakeIndex);
+    }
+
 }

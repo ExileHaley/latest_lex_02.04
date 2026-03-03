@@ -191,6 +191,7 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
     //8.推进去的订单如果数量大于fomoMinAmount，则添加fomo奖励池地址，也就是实现_addFomoQualified
     /// @notice 质押或者排队
     function stake(address user, uint256 amount, uint8 stakeIndex) external onlyRouter{
+        _checkCircuitBreaker();
         _executeOrQueue(
             user,
             amount,
@@ -241,10 +242,15 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
         }
 
         // 退回额度
-        if (order.stakeIndex != 0 && !_isFreePeriod() && !circuitBreaker) {
-            uint256 today = _getToday();
-            dailyQuota[today].stakeUsed -= amount;
-        }
+        // if (order.stakeIndex != 0 && !_isFreePeriod() && !circuitBreaker) {
+        //     uint256 today = _getToday();
+        //     dailyQuota[today].stakeUsed -= amount;
+        // }
+
+        // if (order.stakeIndex != 0 && !_isFreePeriod() && !circuitBreaker && order.status == 1) {
+        //     uint256 today = _getToday();
+        //     dailyQuota[today].stakeUsed -= amount;
+        // }
 
         // 标记为已取消
         order.status = 2;
@@ -436,20 +442,20 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
         if (_isFreePeriod() || circuitBreaker) {
             return type(uint256).max; // 免费期或熔断期不限制额度
         }
-        uint256 poolBalance = IERC20(pair).balanceOf(pair);
+        uint256 poolBalance = IERC20(USDT).balanceOf(pair);
         return poolBalance * stakeRatio / 10000; // stakeRatio 千分比
     }
 
     /// @notice 获取今日最大赎回额度
     function _maxUnstakeQuota() internal view returns(uint256) {
-        uint256 poolBalance = IERC20(pair).balanceOf(pair);
+        uint256 poolBalance = IERC20(USDT).balanceOf(pair);
         return poolBalance * unstakeRatio / 10000;
     }
 
     /// @notice 检查熔断状态，根据 lex 最高储备触发/关闭
     function _checkCircuitBreaker() internal {
         uint256 highestReserve = ILex(lex).getHighestReserve();
-        uint256 currentReserve = IERC20(pair).balanceOf(pair);
+        uint256 currentReserve = IERC20(USDT).balanceOf(pair);
 
         if (!circuitBreaker && currentReserve < highestReserve * breakerTriggerRatio / 10000) {
             circuitBreaker = true;

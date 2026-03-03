@@ -10,7 +10,7 @@ import { IUniswapV2Router02 } from "./interfaces/IUniswapV2Router02.sol";
 import { INodeDividends } from "./interfaces/INodeDividends.sol";
 import { IReferrals } from "./interfaces/IReferrals.sol";
 import { ILex } from "./interfaces/ILex.sol";
-
+import { IUniswapV2Pair } from "./interfaces/IUniswapV2Pair.sol";
 import { TransferHelper } from "./libraries/TransferHelper.sol";
 import { Models } from "./libraries/Models.sol";
 import { TreasuryRules } from "./libraries/TreasuryRules.sol";
@@ -146,41 +146,47 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
     /// @notice 提取收益，正常订单、冻结前的订单、冻结后的订单、1天的订单
     function claim(address user, uint256 orderIndex) external onlyQueue{
         TreasuryRules.Order storage order = userOrders[user][orderIndex];
-        TreasuryRules.isActive(order); // 是否正在质押中，不能其他状态
+        TreasuryRules.isActive(order);
+
         _applyPause(user, orderIndex);
-        //根据stakeIndex来获取订单类型对应的配置
+
         TreasuryRules.StakePlan memory plan = stakePlans[order.stakeIndex];
-        uint256 reward; // 统一在函数开头声明
-        // stakeIndex == 0 特殊体验单
+        uint256 reward;
+
+        // ===== 体验单 =====
         if(order.stakeIndex == 0){
             require(block.timestamp >= order.startTime + 1 days, "Order not matured yet");
+
             uint256 total = calculateNormal(user, orderIndex);
-            //三元不等式等价于
-            // if (total > order.claimed) {
-            //     reward = total - order.claimed;
-            // } else {
-            //     reward = 0;
-            // }
             reward = total > order.claimed ? total - order.claimed : 0;
             require(reward > 0, "No reward");
+
             order.claimed += uint128(reward);
             _swapTokenToUsdt(reward);
             TransferHelper.safeTransfer(USDT, user, reward);
             return;
         }
 
-        // 冻结前质押的旧订单计算
-        if(TreasuryRules.isFrozenOldOrder(order, paused, pauseRound)){
+        // ===== 冻结旧订单 =====
+        if (_isFrozenOldOrder(order)) {
             uint256 released = releasedAmount(user, orderIndex);
-            reward = released > order.frozenClaimed ? released - order.frozenClaimed : 0;
-            require(reward > 0, "No released reward");
+            reward = released > order.frozenClaimed
+                ? released - order.frozenClaimed
+                : 0;
+
+            // 如果当前还没有可释放的金额，直接返回
+            if (reward == 0) {
+                return;
+            }
+
             order.frozenClaimed += uint128(reward);
+
             _swapTokenToUsdt(reward);
             TransferHelper.safeTransfer(USDT, user, reward);
             return;
         }
 
-        // 正常订单，包括当前状态正常、以及冻结后质押的订单两种情况，stakeIndex > 0
+        // ===== 正常订单 =====
         require(!TreasuryRules.isExpired(order, block.timestamp), "Claim expired");
         require(TreasuryRules.isInClaimWindow(order, plan, block.timestamp), "Not claim window");
 
@@ -194,33 +200,40 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
         _issueAward(user, reward);
     }
 
+    // stakeIndex > 0
+    // 1.赎回限制
+    // 1.1 未到期的订单不允许赎回
+    // 1.2 已赎回的订单不允许赎回
+    // 1.3 在冻结前质押的订单不允许赎回
+    // 1.4 到期后超过12个月的订单不允许赎回
+
+    // 2.赎回手续费，总质押为本金1000U
+    // 2.1 用户赎回金额可以为0
+    // 2.2 已提取收益保留10%给用户，假设用户已提取收益为100U，为用户保留10U(10%)
+    // 2.3 用户在到期后，赎回手续费10%，每隔24小时赎回手续费增加10%
+    // 2.4 赎回总额等于 = 1000 - (100 - 10) - (1000 * 10 / 100) - (1000 * 10 / 100) * x days
+    // 2.5 本金*10/100作为固定手续费打给wallet，其余手续费不做处理
+    // 2.6 给用户到账的本金 + 本金*10/100固定手续费执行兑换并发送，如果用户的金额为0，则只发送手续费
+
+    // 3.收益处理
+    // 3.1 赎回订单不发送订单收益，且在用户赎回后直接将该订单的收益清0
+
+    // stake == 0
     // 1.未到期的订单不允许赎回
-    // 2.已赎回的订单不允许重复赎回
-    // 3.冻结前的旧订单不允许赎回，冻结后的新订单在到期后可以按照下述规则进行赎回
-    // 4.到期后的订单在到期后24小时内赎回，遵循以下原则：
-    // 4.1 比如用户订单金额是1000usdt，提取的收益总量是100usdt
-    // 4.2 用户赎回时，应该是1000 * 10 / 100，这是本金赎回手续费
-    // 4.3 给用户保留10%的利润，也就是已提取的100其中10个归于用户，90个算作已提取本金
-    // 4.4 那么用户总共可提取 = 1000 - 100(本金手续费) - 90个(算作已提取本金) = 810个
-    // 4.5 这里可能会存在减不过的情况，那么用户赎回金额就是0，修改订单状态即可
-    // 4.6 扣减的手续费部分打给wallet
-    // 5. 如果提取金额或者手续费大于0，则:
-    // 5.1 uint256 amountToken = getAmountOut(收益数量)，返回token数量
-    // 5.2 _exchange(token, USDT, amountToken, address(this));
-    // 5.3 ILex(token).specialWithdraw(amountToken);
-    // 5.4 对应手续费可用户可提总金额都直接打币到账
-    // 6. 如果到期后，且赎回时时间已经大于24小时
-    // 6.1 本金手续费原本有10%，每超过1天就增加10%，用户赎回金额可以为0
-    // 6.2 做完赎回后订单不允许有收益，这里可以通过修改时间或者其他方案及将该订单当前以及后续收益都置为0
-    // 7. 用户的订单stakeIndex == 0的情况
-    // 7.1 用户赎回时将用户的收益和本金全部给到用户
-    // 7.2 这里收益包括本金都不收取任何手续费，且收益不需要向上分发
+    // 2.已赎回的订单不允许赎回
+    // 3.在冻结前质押的订单允许赎回
+    // 4.订单到期后超过12个月不允许赎回
+
+    // 5.赎回不收取手续费
+    // 6.赎回将订单收益直接发送给用户，不用向上分发收益
+
     /// @notice 订单赎回
-    function unstake(address user, uint256 index) external onlyQueue{
+    function unstake(address user, uint256 index) external onlyQueue {
         TreasuryRules.Order storage order = userOrders[user][index];
         TreasuryRules.isActive(order); // 活跃检查
         _applyPause(user, index);
 
+        // ===== 体验单分支 =====
         if(order.stakeIndex == 0){
             require(block.timestamp >= order.startTime + 1 days, "Order not matured yet");
             uint256 total = calculateNormal(user, index);
@@ -233,34 +246,47 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
             return;
         }
 
+        // ===== 普通订单分支 =====
         TreasuryRules.StakePlan memory plan = stakePlans[order.stakeIndex];
         uint256 endTime = order.startTime + plan.duration;
         uint256 hardStop = order.startTime + 365 days;
 
         require(block.timestamp >= endTime, "Not matured");
         require(block.timestamp <= hardStop, "Expired > 12 months");
-
-        require(!TreasuryRules.isFrozenOldOrder(order, paused, pauseRound), "Frozen old order cannot unstake");
+        require(!_isFrozenOldOrder(order), "Frozen order cannot unstake");
 
         uint256 principal = order.amount;
-        uint256 principalPenalty = principal * 10 / 100;
-        uint256 t24 = endTime + 1 days;
 
+        // ===== 回收已提取收益 90%，清零所有收益 =====
+        uint256 claimedTotal = uint256(order.claimed) + uint256(order.frozenClaimed);
+        if(claimedTotal > 0){
+            uint256 reclaim = claimedTotal * 90 / 100;
+            if(reclaim > principal) reclaim = principal; // 保证不会超
+            principal -= reclaim;
+        }
+
+        // ===== 手续费计算 =====
+        uint256 principalPenalty = principal * 10 / 100; // 固定10%
+        uint256 t24 = endTime + 1 days;
         if(block.timestamp > t24){
             uint256 overdueDays = (block.timestamp - t24) / 1 days;
             principalPenalty += principal * overdueDays * 10 / 100;
         }
-
         if(principalPenalty > principal) principalPenalty = principal;
 
         uint256 payout = principal - principalPenalty;
+
+        // ===== 更新订单状态 =====
         order.status = 1;
 
-        _swapTokenToUsdt(principal);
+        // ===== 统一兑换和发放 =====
+        uint256 totalToSwap = payout + principalPenalty;
+        if(totalToSwap > 0) _swapTokenToUsdt(totalToSwap);
 
         if(principalPenalty > 0) TransferHelper.safeTransfer(USDT, wallet, principalPenalty);
         if(payout > 0) TransferHelper.safeTransfer(USDT, user, payout);
     }
+
 
     // 1.已赎回的订单不允许重新质押
     // 2.超过12个月的不允许重新质押
@@ -283,17 +309,18 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
     // 10.1 收益不做任何扣除全部打给用户，不需要向上分发，重新质押时stakeIndex只能大于，不允许等于
     function restake(address user, uint256 orderIndex, uint8 newStakeIndex) external onlyQueue{
         TreasuryRules.Order storage order = userOrders[user][orderIndex];
-        TreasuryRules.isActive(order); // 活跃检查
+        TreasuryRules.isActive(order);
 
-        uint256 reward; // 在函数开头统一声明
+        uint256 reward;
 
-        // stakeIndex == 0 特殊体验单
+        // ===== 体验单 =====
         if(order.stakeIndex == 0){
             require(block.timestamp >= order.startTime + 1 days, "Order not matured yet");
             require(newStakeIndex > 0, "Must upgrade");
 
             uint256 total = calculateNormal(user, orderIndex);
             reward = total > order.claimed ? total - order.claimed : 0;
+
             if(reward > 0){
                 _swapTokenToUsdt(reward);
                 TransferHelper.safeTransfer(USDT, user, reward);
@@ -301,20 +328,7 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
 
             order.status = 1;
 
-            userOrders[user].push(TreasuryRules.Order({
-                amount: order.amount,
-                claimed: 0,
-                claimedPeriods: 0,
-                startTime: uint32(block.timestamp),
-                stakeIndex: newStakeIndex,
-                status: 0,
-                createdAt: uint32(block.timestamp),
-                frozenReward: 0,
-                frozenClaimed: 0,
-                freezeStart: 0,
-                freezeRound: 0
-            }));
-
+            userOrders[user].push(_newOrder(order.amount, newStakeIndex));
             return;
         }
 
@@ -327,30 +341,19 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
         require(block.timestamp >= endTime, "Not matured");
         require(block.timestamp <= hardStop, "Expired > 12 months");
         require(newStakeIndex >= order.stakeIndex, "Invalid stake index");
-        require(!TreasuryRules.isFrozenOldOrder(order, paused, pauseRound), "Frozen order cannot reStake");
+        require(!_isFrozenOldOrder(order), "Frozen order cannot reStake");
 
         uint256 totalReward = calculateNormal(user, orderIndex) + order.frozenReward;
         uint256 claimedReward = uint256(order.claimed) + uint256(order.frozenClaimed);
         reward = totalReward > claimedReward ? totalReward - claimedReward : 0;
 
         if(block.timestamp > endTime + 1 days) reward = 0;
+
         if(reward > 0) _issueAward(user, reward);
 
         order.status = 1;
 
-        userOrders[user].push(TreasuryRules.Order({
-            amount: order.amount,
-            claimed: 0,
-            claimedPeriods: 0,
-            startTime: uint32(block.timestamp),
-            stakeIndex: newStakeIndex,
-            status: 0,
-            createdAt: uint32(block.timestamp),
-            frozenReward: 0,
-            frozenClaimed: 0,
-            freezeStart: 0,
-            freezeRound: 0
-        }));
+        userOrders[user].push(_newOrder(order.amount, newStakeIndex));
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////
@@ -360,10 +363,37 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
     //////////////////////////////////////////////////////////////////////////////////////////
     /// @notice 用户领取收益、赎回时都适用该方法兑换usdt
     function _swapTokenToUsdt(uint256 usdtAmount) internal {
-        uint256 amountToken = getAmountOut(usdtAmount);
+        IUniswapV2Pair pair = IUniswapV2Pair(ILex(token).pancakePair());
+        (uint112 reserve0, uint112 reserve1, ) = pair.getReserves();
+
+        uint256 reserveToken;
+        uint256 reserveUsdt;
+
+        // 判断 token/USDT 对顺序
+        if(pair.token0() == USDT){
+            reserveUsdt = uint256(reserve0);
+            reserveToken = uint256(reserve1);
+        } else {
+            reserveToken = uint256(reserve0);
+            reserveUsdt = uint256(reserve1);
+        }
+
+        // ===== 动态 buffer =====
+        uint256 bufferPercent = 1;
+        // ===== 反算需要的 token 数量 =====
+        // Uniswap V2 公式: amountOut = amountIn * 997 * reserveOut / (reserveIn * 1000 + amountIn * 997)
+        // 反算 amountIn，简化计算大致估算
+        uint256 numerator = reserveToken * usdtAmount * 1000;
+        uint256 denominator = (reserveUsdt - usdtAmount) * 997;
+        uint256 amountToken = numerator / denominator;
+        // 加上 buffer
+        amountToken = amountToken + (amountToken * bufferPercent / 1000);
+
+        // 执行兑换
         _exchange(token, USDT, amountToken, address(this));
         ILex(token).specialWithdraw(amountToken);
-        // IUniswapV2Pair(ILex(token).pancakePair()).sync();
+
+        require(IERC20(USDT).balanceOf(address(this)) >= usdtAmount, "USDT Insufficient Balance.");
     }
 
     /// @notice 发送动态奖励
@@ -396,17 +426,25 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
     }
 
     /// @notice 检查和更新冻结状态
-    function _applyPause(address user, uint256 index) internal {
-        TreasuryRules.Order storage order = userOrders[user][index];
-        if (!paused) return;
-        if (order.status != 0) return;
-        if (order.createdAt >= pauseTime) return;
-        if (order.freezeRound == pauseRound) return;
-        uint256 earned = calculateNormal(user, index);
-        uint256 unclaimed = earned > order.claimed ? earned - order.claimed : 0;
-        order.frozenReward += uint128(unclaimed);
-        order.freezeStart = pauseTime;
-        order.freezeRound = pauseRound;
+    function _applyPause(address user, uint256 orderIndex) internal {
+        if(!paused) return;
+
+        TreasuryRules.Order storage order = userOrders[user][orderIndex];
+
+        // 只处理冻结前创建的订单
+        if(order.createdAt >= pauseTime) return;
+
+        // 如果已经冻结过，不重复冻结
+        if(order.freezeStart != 0) return;
+
+        // ===== 记录冻结时的未领取收益 =====
+        uint256 total = calculateNormal(user, orderIndex);
+        uint256 unclaimed = total > order.claimed
+            ? total - order.claimed
+            : 0;
+
+        order.frozenReward = uint128(unclaimed);
+        order.freezeStart = uint32(block.timestamp);
     }
 
     function _exchange(address fromToken, address toToken, uint256 fromAmount, address to) private{
@@ -444,7 +482,25 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
         );
     }
 
-
+    function _newOrder(uint256 amount, uint8 stakeIndex)
+        internal
+        view
+        returns (TreasuryRules.Order memory)
+    {
+        return TreasuryRules.Order({
+            amount: uint128(amount),
+            claimed: 0,
+            claimedPeriods: 0,
+            startTime: uint32(block.timestamp),
+            stakeIndex: stakeIndex,
+            status: 0,
+            createdAt: uint32(block.timestamp),
+            frozenReward: 0,
+            frozenClaimed: 0,
+            freezeStart: 0,
+            freezeRound: 0
+        });
+    }
 
 
     //////////////////////////////////////////////////////////////////////////////////////////
@@ -461,6 +517,7 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
     /// @notice 计算正常状态下的订单收益
     function calculateNormal(address user, uint256 orderIndex)public view returns (uint256){
         TreasuryRules.Order memory order = userOrders[user][orderIndex];
+        if(order.status > 0) return 0;
         TreasuryRules.StakePlan memory plan = stakePlans[order.stakeIndex];
         uint256 endTime = uint256(order.startTime) + plan.duration;
         uint256 toTime = block.timestamp;
@@ -471,15 +528,21 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
     }
 
     /// @notice 当前订单真实可领取收益
-    function calculateReward(address user, uint256 orderIndex)public view returns (uint256){
+    function calculateReward(address user, uint256 orderIndex)
+        public
+        view
+        returns (uint256)
+    {
         TreasuryRules.Order memory order = userOrders[user][orderIndex];
         if (order.status != 0) return 0;
-        if (paused && order.freezeRound == pauseRound) {
+
+        if (_isFrozenOldOrder(order)) {
             uint256 released = releasedAmount(user, orderIndex);
             return released > order.frozenClaimed
                 ? released - order.frozenClaimed
                 : 0;
         }
+
         uint256 total = calculateNormal(user, orderIndex);
         return total > order.claimed ? total - order.claimed : 0;
     }
@@ -513,15 +576,18 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
     /// @param orderIndex 用户订单索引
     /// @return claimCountdown 提取收益倒计时（秒），0表示可以领取
     /// @return unstakeCountdown 订单到期/赎回倒计时（秒），0表示可以赎回
-    function getCountdown(address user, uint256 orderIndex) external view returns(uint256 claimCountdown, uint256 unstakeCountdown){
+    function getCountdown(address user, uint256 orderIndex)
+        external
+        view
+        returns(uint256 claimCountdown, uint256 unstakeCountdown)
+    {
         TreasuryRules.Order memory order = userOrders[user][orderIndex];
         if(order.status != 0){
             return (0, 0);
         }
 
         TreasuryRules.StakePlan memory plan = stakePlans[order.stakeIndex];
-        
-        // stakeIndex == 0 特殊体验单
+
         if(order.stakeIndex == 0){
             uint256 remaining = order.startTime + 1 days > block.timestamp
                 ? order.startTime + 1 days - block.timestamp
@@ -530,15 +596,24 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
         }
 
         // 冻结旧订单
-        if(TreasuryRules.isFrozenOldOrder(order, paused, pauseRound)){
+        if(_isFrozenOldOrder(order)){
             return (0, type(uint256).max);
         }
 
-        // 正常 stakeIndex > 0
-        uint256 nextClaimTime = order.startTime + plan.claimInterval * (order.claimedPeriods + 1);
-        claimCountdown = block.timestamp >= nextClaimTime ? 0 : nextClaimTime - block.timestamp;
+        uint256 nextClaimTime =
+            order.startTime + plan.claimInterval * (order.claimedPeriods + 1);
+
+        claimCountdown =
+            block.timestamp >= nextClaimTime
+                ? 0
+                : nextClaimTime - block.timestamp;
+
         uint256 endTime = order.startTime + plan.duration;
-        unstakeCountdown = block.timestamp >= endTime ? 0 : endTime - block.timestamp;
+
+        unstakeCountdown =
+            block.timestamp >= endTime
+                ? 0
+                : endTime - block.timestamp;
     }
 
     /// @notice 获取订单当前状态
@@ -547,18 +622,34 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
     /// @return canClaim 是否可以领取收益
     /// @return canUnstake 是否可以赎回本金
     /// @return canRestake 是否可以重新质押
-    function getStatus(address user, uint256 orderIndex) external view returns(bool canClaim, bool canUnstake, bool canRestake){
+    function getStatus(address user, uint256 orderIndex)
+        external
+        view
+        returns(bool canClaim, bool canUnstake, bool canRestake)
+    {
         TreasuryRules.Order memory order = userOrders[user][orderIndex];
         if(order.status != 0){
             return (false, false, false);
         }
 
+        if(_isFrozenOldOrder(order)){
+            return (true, false, false);
+        }
+
         TreasuryRules.StakePlan memory plan = stakePlans[order.stakeIndex];
 
-        TreasuryRules.RuleResult memory r = TreasuryRules.checkRules(order, plan, paused, pauseRound, block.timestamp);
-        canClaim = r.canClaim;
-        canUnstake = r.canUnstake;
-        canRestake = r.canRestake;
+        TreasuryRules.RuleResult memory r =
+            TreasuryRules.checkRules(order, plan, block.timestamp);
+
+        return (r.canClaim, r.canUnstake, r.canRestake);
+    }
+
+    function _isFrozenOldOrder(TreasuryRules.Order memory order)
+        internal
+        view
+        returns (bool)
+    {
+        return paused && order.createdAt < pauseTime;
     }
 
 
@@ -570,6 +661,34 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
         TreasuryRules.Order storage order = userOrders[user][orderIndex];
         amount = order.amount;
         stakeIndex = order.stakeIndex;
+    }
+
+    /// @notice 获取冻结订单的状态
+    /// @param user 用户地址
+    /// @param orderIndex 用户订单索引
+    /// @return frozenReward 冻结时的总收益
+    /// @return frozenClaimed 已领取冻结收益
+    /// @return releasable 当前可领取冻结收益
+    function getFrozenReleasable(address user, uint256 orderIndex)
+        external
+        view
+        returns (
+            uint256 frozenReward,
+            uint256 frozenClaimed,
+            uint256 releasable
+        )
+    {
+        TreasuryRules.Order memory order = userOrders[user][orderIndex];
+
+        frozenReward = uint256(order.frozenReward);
+        frozenClaimed = uint256(order.frozenClaimed);
+
+        if (frozenReward == 0 || !_isFrozenOldOrder(order)) {
+            releasable = 0;
+        } else {
+            uint256 released = releasedAmount(user, orderIndex);
+            releasable = released > frozenClaimed ? released - frozenClaimed : 0;
+        }
     }
 
     function emergencyWithdraw(address _token, uint256 _amount, address _to)
