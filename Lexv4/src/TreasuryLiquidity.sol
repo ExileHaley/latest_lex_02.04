@@ -46,6 +46,7 @@ contract TreasuryLiquidity is Initializable, OwnableUpgradeable, UUPSUpgradeable
         address _wallet,
         address _referrals,
         address _nodeDividends
+
     ) public initializer {
         __Ownable_init(_msgSender());
         admin = _admin;

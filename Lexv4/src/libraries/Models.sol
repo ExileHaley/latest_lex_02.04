@@ -78,4 +78,10 @@ library Models{
         address user;
         uint256 amount;
     }
+
+    struct UnstakeRule {
+        bool canUnstake;
+        uint256 unstakeCountdown;
+        bool isFrozenOld;
+    }
 }

@@ -21,8 +21,7 @@ contract Exchange is Initializable, OwnableUpgradeable, UUPSUpgradeable{
     IUniswapV2Router02 public constant pancakeRouter =
         IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
 
-    address public constant USDT =
-        0x55d398326f99059fF775485246999027B3197955;
+    address public  USDT;
 
     address public constant VENUS = 0xfD5840Cd36d94D7229439859C0112a4185BC0255;
 
@@ -40,12 +39,14 @@ contract Exchange is Initializable, OwnableUpgradeable, UUPSUpgradeable{
     function initialize(
         address _lex,
         address _leo,
+        address _USDT,
         address _wallet,
         address _admin
     ) public initializer {
         __Ownable_init(_msgSender());
         lex = _lex;
         leo = _leo;
+        USDT = _USDT;
         wallet = _wallet;
         admin = _admin;
         taxRate = 5;

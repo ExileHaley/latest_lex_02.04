@@ -50,7 +50,7 @@ contract NodeDividends is Initializable, OwnableUpgradeable, UUPSUpgradeable, IN
     address public nodeDividendsV1;
     address public lex;
 
-    address public treasury;
+    address public treasuryLiquidity;
     address public admin;
     address public USDT;
 
@@ -82,7 +82,7 @@ contract NodeDividends is Initializable, OwnableUpgradeable, UUPSUpgradeable, IN
     }
 
     modifier onlyFarm() {
-        require(lex == msg.sender || treasury == msg.sender, "NOT_PERMIT.");
+        require(lex == msg.sender || treasuryLiquidity == msg.sender, "NOT_PERMIT.");
         _;
     }
 
@@ -91,8 +91,8 @@ contract NodeDividends is Initializable, OwnableUpgradeable, UUPSUpgradeable, IN
         _;
     }
 
-    function setTreasuryAddr(address _treasury) external onlyOwner{
-        treasury = _treasury;
+    function setAddrConfig(address _treasuryLiquidity) external onlyOwner{
+        treasuryLiquidity = _treasuryLiquidity;
     }
     
     /* ========== 总倍数函数 ========== */

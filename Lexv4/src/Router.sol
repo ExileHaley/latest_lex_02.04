@@ -50,7 +50,7 @@ contract Router is Ownable, ReentrancyGuard{
         IReferrals(referrals).referral(parent, msg.sender);
     }
 
-    //验证邀请码是否有效
+
     function stake(uint256 amount, uint8 stakeIndex) external nonReentrant{
         require(stakeIndex < 4, "ERROR_STAKE_INDEX.");
         uint256 maxLimit = maxValueOfStakeIndex[stakeIndex];
@@ -171,10 +171,10 @@ contract Router is Ownable, ReentrancyGuard{
             Models.RuleResult memory result
         )
     {
-        // 1️⃣ 获取订单
+
         Models.Order memory order = ITreasury(treasury).getUserOrders(user)[orderIndex];
 
-        // 2️⃣ 获取计划
+
         (uint32 duration, uint32 claimInterval, uint64 rate) = ITreasury(treasury).stakePlans(order.stakeIndex);
         Models.StakePlan memory plan = Models.StakePlan({
             duration: duration,
@@ -182,12 +182,14 @@ contract Router is Ownable, ReentrancyGuard{
             rate: rate
         });
 
-        // 3️⃣ 判断冻结状态
+
         bool paused = ITreasury(treasury).paused();
         uint32 pauseTime = ITreasury(treasury).pauseTime();
         uint64 releaseRatePerDay = ITreasury(treasury).releaseRatePerDay();
-        truthAward = TreasuryRules.pendingReward(order, plan, block.timestamp, pauseTime, releaseRatePerDay);
-        result = TreasuryRules.getStatus(order, plan, block.timestamp, paused, pauseTime, 3);
 
+        truthAward = TreasuryRules.pendingReward(order, plan, block.timestamp, pauseTime, releaseRatePerDay);
+
+        uint8 newStakeIndex = uint8(order.stakeIndex + 1);
+        result = TreasuryRules.getStatus(order, plan, block.timestamp, paused, pauseTime, newStakeIndex, releaseRatePerDay);
     }
 }

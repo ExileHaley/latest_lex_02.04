@@ -75,7 +75,10 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
         address _admin,
         address _lex,
         address _pair,
-        address _USDT
+        address _USDT,
+        address _treasury, 
+        address _treasuryLiquidity,
+        address _referrals
     ) public initializer {
         __Ownable_init(_msgSender());
 
@@ -83,7 +86,10 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
         lex = _lex;
         pair = _pair;
         USDT = _USDT;
-
+        treasury = _treasury;
+        treasuryLiquidity = _treasuryLiquidity;
+        referrals = _referrals;
+        
         launchTime = block.timestamp;
         freeDays = 4;
 
@@ -117,14 +123,7 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
         freeDays = _freeDays;
     }
 
-    function setAddrConfig(
-        address _treasury, 
-        address _treasuryLiquidity,
-        address _referrals, 
-        address _router) external onlyOwner{
-        treasury = _treasury;
-        treasuryLiquidity = _treasuryLiquidity;
-        referrals = _referrals;
+    function setAddrConfig(address _router) external onlyOwner{
         router = _router;
     }
 
@@ -454,6 +453,7 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
 
     /// @notice 获取今日最大赎回额度
     function _maxUnstakeQuota() internal view returns(uint256) {
+        if (circuitBreaker) return 0; // 熔断期间禁止赎回
         uint256 poolBalance = IERC20(USDT).balanceOf(pair);
         return poolBalance * unstakeRatio / 10000;
     }

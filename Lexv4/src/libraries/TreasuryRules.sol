@@ -129,18 +129,41 @@ library TreasuryRules {
         Models.StakePlan memory plan,
         uint256 currentTime,
         bool frozen
-    ) internal pure returns(bool) {
-        if(frozen){
-            // 冻结释放的收益随时可领取
+    ) internal pure returns (bool) {
+        if (frozen) {
             return true;
         }
 
-        // 非冻结订单仍然受原窗口限制
-        if(currentTime < order.startTime + plan.claimInterval) return false;
-        if(currentTime > order.startTime + plan.claimInterval + 1 days) return false;
+        uint256 start = order.startTime;
+        uint256 endTime = start + plan.duration;
 
-        return true;
+        // 超过到期+24h不可领取
+        if (currentTime > endTime + 1 days) {
+            return false;
+        }
+
+        // 当前时间至少超过第一次可领取间隔
+        if (currentTime < start + plan.claimInterval) {
+            return false;
+        }
+
+        // 计算当前周期
+        uint256 elapsed = currentTime - start;
+        uint256 periods = elapsed / plan.claimInterval;
+        uint256 maxPeriods = plan.duration / plan.claimInterval;
+        if (periods > maxPeriods) periods = maxPeriods;
+
+        // 当前周期是否已领取
+        if (periods <= order.claimedPeriods) {
+            return false;
+        }
+
+        // 当前时间是否在窗口（每周期允许领取24h）
+        uint256 claimWindowStart = start + periods * plan.claimInterval;
+        uint256 claimWindowEnd   = claimWindowStart + 1 days;
+        return currentTime >= claimWindowStart && currentTime <= claimWindowEnd;
     }
+
 
     /// @notice 检查订单是否仍然活跃
     function isActive(Models.Order memory order) internal pure {
@@ -157,58 +180,78 @@ library TreasuryRules {
     }
 
     /// @notice 校验收益提取规则
+    /// @notice 验证收益提取规则，完全复用 isInClaimWindow
     function validateClaim(
         Models.Order memory order,
         Models.StakePlan memory plan,
         bool frozen,
         uint256 currentTime
     ) internal pure {
-
         require(order.status == 0, "Order inactive");
+        require(currentTime <= order.startTime + 365 days, "Order expired");
 
-        // 12个月上限
-        require(
-            currentTime <= order.startTime + 365 days,
-            "Order expired"
-        );
+        // 冻结状态随时可领取
+        if (frozen) return;
 
-        // 冻结订单：随时可领取释放收益
-        if (frozen) {
-            return;
+        // 普通订单调用统一 claim window
+        require(isInClaimWindow(order, plan, currentTime, frozen), "Not in claim window");
+    }
+
+    //内部函数用于返回相关状态
+    function _unstakeRule(
+        Models.Order memory order,
+        Models.StakePlan memory plan,
+        uint256 currentTime,
+        bool paused,
+        uint32 pauseTime
+    ) internal pure returns (Models.UnstakeRule memory rule) {
+        rule.isFrozenOld = paused && order.createdAt < pauseTime;
+
+        if(order.status != 0){
+            rule.canUnstake = false;
+            rule.unstakeCountdown = type(uint256).max;
+            rule.isFrozenOld = false;
+            return rule;
         }
 
-        require(
-                isInClaimWindow(order, plan, currentTime, false),
-                "Not in claim window"
-        );
+        if(rule.isFrozenOld){
+            rule.canUnstake = false;
+            rule.unstakeCountdown = type(uint256).max;
+            return rule;
+        }
 
-}
+        uint256 maturityTime = order.startTime + plan.duration;
+        uint256 expiryTime   = order.startTime + 365 days;
 
-    /// @notice 验证订单是否可赎回（统一前提规则）
+        if(currentTime < maturityTime){
+            rule.canUnstake = false;
+            rule.unstakeCountdown = maturityTime - currentTime;
+        } else if(currentTime <= expiryTime){
+            rule.canUnstake = true;
+            rule.unstakeCountdown = 0;
+        } else {
+            rule.canUnstake = false;
+            rule.unstakeCountdown = type(uint256).max;
+        }
+    }
+
+    /// @notice 验证订单是否可赎回
     /// @param order 订单信息
     /// @param plan 对应质押计划
     /// @param currentTime 当前时间戳
-    /// @param isFrozenOld 是否为冻结前订单
+    /// @param paused 是否为冻结前订单
+    /// @param pauseTime 冻结时间
     function validateUnstakePre(
         Models.Order memory order,
         Models.StakePlan memory plan,
         uint256 currentTime,
-        bool isFrozenOld
+        bool paused,
+        uint32 pauseTime
     ) internal pure {
-
-        require(order.status == 0, "Order inactive");
-
-        // 冻结前订单禁止赎回
-        require(!isFrozenOld, "Frozen pre-order cannot unstake");
-
-        uint256 maturityTime = order.startTime + plan.duration;
-        uint256 expiryTime = order.startTime + 365 days;
-
-        // 必须到期
-        require(currentTime >= maturityTime, "Order not matured");
-
-        // 超过一年订单作废
-        require(currentTime <= expiryTime, "Order expired");
+        // require(order.status == 0, "Order inactive");
+        Models.UnstakeRule memory rule = _unstakeRule(order, plan, currentTime, paused, pauseTime);
+        require(!rule.isFrozenOld, "Frozen pre-order cannot unstake");
+        require(rule.canUnstake, "Order not matured or expired");
     }
 
 
@@ -264,65 +307,32 @@ library TreasuryRules {
     }
 
 
-    /// @notice 返回订单当前状态信息
-    function getStatus(
+    /// @notice 验证再质押前置条件
+    function _restakeRule(
         Models.Order memory order,
         Models.StakePlan memory plan,
         uint256 currentTime,
         bool paused,
         uint32 pauseTime,
         uint8 newStakeIndex
-    ) 
-        internal 
-        pure 
-        returns (Models.RuleResult memory result) 
-    {
-        // 冻结前订单
-        result.isFrozen = isFrozenOldOrder(order, pauseTime, paused);
+    ) internal pure returns (bool canRestake) {
+        // 先判断赎回规则
+        Models.UnstakeRule memory unstakeRule = _unstakeRule(order, plan, currentTime, paused, pauseTime);
 
-        // 1️⃣ 可领取收益倒计时
-        if(result.isFrozen){
-            result.claimCountdown = type(uint256).max;
-        } else if(order.freezeStart != 0){
-            result.claimCountdown = 0;
-        } else {
-            uint256 claimWindowStart = order.startTime + plan.claimInterval;
-            uint256 claimWindowEnd   = claimWindowStart + 1 days;
-
-            if(currentTime < claimWindowStart){
-                result.claimCountdown = claimWindowStart - currentTime;
-            } else if(currentTime <= claimWindowEnd){
-                result.claimCountdown = 0;
-            } else {
-                result.claimCountdown = type(uint256).max;
-            }
+        // 冻结订单或未到期无法再质押
+        if(!unstakeRule.canUnstake) {
+            return false;
         }
 
-        // 2️⃣ 赎回倒计时
-        uint256 maturityTime = order.startTime + plan.duration;
-        uint256 expiryTime   = order.startTime + 365 days;
-
-        if(result.isFrozen){
-            result.unstakeCountdown = type(uint256).max;
-        } else if(currentTime < maturityTime){
-            result.unstakeCountdown = maturityTime - currentTime;
-        } else if(currentTime <= expiryTime){
-            result.unstakeCountdown = 0;
-        } else {
-            result.unstakeCountdown = type(uint256).max;
+        // 新的 stakeIndex 必须大于旧的 stakeIndex（首次 stakeIndex=0 特殊处理）
+        if(newStakeIndex < order.stakeIndex + (order.stakeIndex == 0 ? 1 : 0)){
+            return false;
         }
 
-        // 3️⃣ 操作权限
-        result.canClaim    = (result.claimCountdown == 0 && order.status == 0);
-        result.canUnstake  = (result.unstakeCountdown == 0 && order.status == 0);
-        result.canRestake  = result.canUnstake && newStakeIndex >= order.stakeIndex + (order.stakeIndex == 0 ? 1 : 0);
-
-        // 4️⃣ 订单状态
-        result.isExpired   = currentTime > order.startTime + 365 days;
-        result.isMatured   = currentTime >= maturityTime;
+        return true;
     }
 
-    /// @notice 验证再质押前置条件
+    // validateRestakePre 调用 view 函数
     function validateRestakePre(
         Models.Order memory order,
         Models.StakePlan memory plan,
@@ -331,10 +341,12 @@ library TreasuryRules {
         uint32 pauseTime,
         uint8 newStakeIndex
     ) internal pure {
-        Models.RuleResult memory result = getStatus(order, plan, currentTime, paused, pauseTime, newStakeIndex);
+        bool canRestake = _restakeRule(order, plan, currentTime, paused, pauseTime, newStakeIndex);
+        require(canRestake, "Cannot restake");
 
-        require(result.canRestake, "Cannot restake");
-        require(result.canUnstake, "Order not matured or expired");
+        // 再质押必须订单可赎回
+        Models.UnstakeRule memory unstakeRule = _unstakeRule(order, plan, currentTime, paused, pauseTime);
+        require(unstakeRule.canUnstake, "Order not matured or expired");
     }
 
     /// @notice 计算再质押可领取收益
@@ -347,7 +359,7 @@ library TreasuryRules {
         uint32 pauseTime,
         uint8 newStakeIndex
     ) internal pure returns(uint256 reward){
-        Models.RuleResult memory result = getStatus(order, plan, currentTime, paused, pauseTime, newStakeIndex);
+        Models.RuleResult memory result = getStatus(order, plan, currentTime, paused, pauseTime, newStakeIndex, releaseRatePerDay);
 
         if(!result.canClaim || !result.canRestake || result.claimCountdown == type(uint256).max){
             return 0;
@@ -355,6 +367,48 @@ library TreasuryRules {
 
         // 赎回奖励 = 可领取的收益（考虑冻结释放）
         reward = pendingReward(order, plan, currentTime, 0, releaseRatePerDay);
+    }   
+
+    /// @notice 返回订单当前状态信息（完全复用核心规则函数）
+    function getStatus(
+        Models.Order memory order,
+        Models.StakePlan memory plan,
+        uint256 currentTime,
+        bool paused,
+        uint32 pauseTime,
+        uint8 newStakeIndex,
+        uint256 releaseRatePerDay
+    ) internal pure returns (Models.RuleResult memory result) {
+        uint256 start = order.startTime;
+        uint256 maturityTime = start + plan.duration;
+        uint256 expiryTime = start + 365 days;
+
+        // ===== 1️⃣ 冻结状态 =====
+        result.isFrozen = paused && order.createdAt < pauseTime;
+
+        // ===== 2️⃣ claim =====
+        bool inWindow = isInClaimWindow(order, plan, currentTime, result.isFrozen);
+        uint256 reward = pendingReward(
+            order,
+            plan,
+            currentTime,
+            result.isFrozen ? pauseTime : 0,
+            releaseRatePerDay
+        );
+        result.canClaim = order.status == 0 && inWindow && reward > 0;
+        result.claimCountdown = result.canClaim ? 0 : type(uint256).max;
+
+        // ===== 3️⃣ unstake =====
+        Models.UnstakeRule memory unstakeRule = _unstakeRule(order, plan, currentTime, paused, pauseTime);
+        result.canUnstake = unstakeRule.canUnstake;
+        result.unstakeCountdown = unstakeRule.unstakeCountdown;
+
+        // ===== 4️⃣ restake =====
+        result.canRestake = _restakeRule(order, plan, currentTime, paused, pauseTime, newStakeIndex);
+
+        // ===== 5️⃣ 状态 =====
+        result.isExpired = currentTime > expiryTime;
+        result.isMatured = currentTime >= maturityTime;
     }
 
 }

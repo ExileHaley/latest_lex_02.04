@@ -1,4 +1,14 @@
-
+### contract address:
+#### Lex token: 0xbE0b36cA2bCc6DEb811B1F6F634d650cB3EB428E
+#### Leo token: 0x5a2Cd7311dAD231c7fb62c632176388724Ea6742
+#### USDT test token: 0x33197a1d84Ec164413853B227174166c71475Db4
+=========================================================
+#### Treasury: 0xDc2cEdb481c18d9bE48ecC9118f64B85F1c539A4
+#### TreasuryLiquidity: 0xae33fc0C731ec15BB57cCD8D9FA11317498820d2
+#### NodeDividends: 0xc1534f77813e9f41132e2188D1e40f7Ca9C925F3
+#### Queue: 0x3E03ad2f51d5D0584B835Ab4069C77f1d882DF34
+#### Referrals: 0xda6E96c707c703F556081d2F2C99AE434aEE7C46
+#### Router: 0x5c51bd302F867e80A50340F5DA74F39537ea6996
 
 #### 质押、赎回、重新质押、提取收益gas都给到1000万
 #### router func list
@@ -40,18 +50,26 @@ struct Order {
 }
 // TreasuryRules.Order[]的索引就是订单Id(orderIndex)
 function getUserOrders(address user) external view returns(TreasuryRules.Order[] memory);
-// 通过订单编号和用户地址获取订单倒计时和状态
+// 通过订单编号和用户地址获取订单倒计时和状态等
+struct RuleResult {
+        uint256 claimCountdown; //收益提取倒计时
+        uint256 unstakeCountdown; //赎回倒计时
+        bool canClaim;  //是否可以提取收益，可用作按钮置灰判断
+        bool canUnstake; //是否可以赎回，可用作按钮置灰判断
+        bool canRestake; //是否可以重新质押，可用作按钮置灰判断
+        //下面三个可以不用展示
+        bool isFrozen; //当前订单是否熔断或冻结
+        bool isExpired; //当前订单是否超过12个月
+        bool isMatured; //当前订单是否到期
+}
+//是当前订单真实可提取收益，result是上述结构体
 function getOrderStatus(address user, uint256 orderIndex) 
         external 
         view 
         returns(
-            uint256 truthAward, //真实可提取收益
-            uint256 claimCountdown, //收益提取倒计时
-            uint256 unstakeCountdown, //赎回倒计时
-            bool    canClaim, //是否可以提取收益
-            bool    canUnstake, //是否可以赎回
-            bool    canRestake //是否可以重新质押
-        );
+            uint256 truthAward,
+            Models.RuleResult memory result
+);
 // 获取用户的所有订单，返回order结构体数组
 function getUserOrders(address user) external view returns(TreasuryRules.Order[] memory);
 // 根据排队订单编号获取获取排队详情
@@ -111,6 +129,11 @@ function getReferralInfo(address user)
             uint256 performance //当前用户的伞下业绩
         );
 ```
+
+
+
+
+
 #### exchange func list
 ```solidity
 // 当前用户拥有的token购买额度，根据用户地址以及代币地址获取
@@ -131,6 +154,10 @@ function subAvailableLimit(address token, address[] memory users, uint256 amount
 //管理员批量增加token购买额度，users[i]的token对应购买额度增加amountUsdt
 function addAvailableLimit(address token, address[] memory users, uint256 amountUsdt) external;
 ```
+
+
+
+
 
 #### 下面都是管理员方法
 #### referrals func list

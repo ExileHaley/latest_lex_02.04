@@ -61,10 +61,10 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
 
     function setAddrConfig(
         address _queue,
-        ITreasuryLiquidity _treasuryLiquidity
+        address _treasuryLiquidity
     ) external onlyOwner{
         queue = _queue;
-        treasuryLiquidity = _treasuryLiquidity;
+        treasuryLiquidity = ITreasuryLiquidity(_treasuryLiquidity);
     }
 
     function pause() external onlyQueue{
@@ -102,6 +102,8 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
         } else {
             order.claimed += uint128(reward);
         }
+        uint256 periods = (block.timestamp - order.startTime) / plan.claimInterval;
+        order.claimedPeriods = uint32(periods);
         // 分发奖励
         treasuryLiquidity.issueAward(user, reward);
     }
@@ -115,9 +117,9 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
         // ===== 1️⃣ 处理冻结逻辑 =====
         TreasuryRules.applyPause(order, plan, pauseTime, pauseRound, paused, block.timestamp);
         // 冻结前订单
-        bool isFrozenOld = TreasuryRules.isFrozenOldOrder(order, pauseTime, paused);
+        // bool isFrozenOld = TreasuryRules.isFrozenOldOrder(order, pauseTime, paused);
         // ===== 2️⃣ 赎回前置检查 =====
-        TreasuryRules.validateUnstakePre(order, plan, block.timestamp, isFrozenOld);
+        TreasuryRules.validateUnstakePre(order, plan, block.timestamp, paused, pauseTime);
         // ===== 3️⃣ 计算本金、固定手续费、逾期罚金 =====
         (uint256 payout, uint256 fixedFee, ) =
             TreasuryRules.calculateUnstakePrincipal(order, plan, block.timestamp);
