@@ -130,6 +130,23 @@ function getReferralInfo(address user)
         );
 ```
 
+#### nodeDividends func list
+```solidity
+////invalid(0/无效)，envoy(1/大使)，director(2/股东)，partner(3/合伙人)
+enum NodeType{INVALID, ENVOY, DIRECTOR, PARTNER}
+function userInfo(address user) external view returns(
+        Models.NodeType nodeType, //节点类型
+        uint256 stakingAmount, //节点对应的数量
+        uint256 extracted, //已提取收益
+        uint256 debt, //负债，这个不用展示
+        bool isOut      //是否出局，这个也不用展示
+);
+//获取用户可提取收益
+function getUserAward(address user) public view returns(uint256);
+//提取收益
+function claim() external;
+
+```
 
 
 
