@@ -59,6 +59,7 @@ contract DeployScript is Script {
         deployTreasuryLiquidity();
         deployQueue();
         deployRouetr();
+        deployExchange();
 
         treasury.setAddrConfig(address(queue), address(treasuryLiquidity));
         referrals.setAddrConfig(address(queue), address(router));
@@ -81,7 +82,7 @@ contract DeployScript is Script {
         console.log("#### Queue:",address(queue));
         console.log("#### Referrals:",address(referrals));
         console.log("#### Router:",address(router));
-
+        console.log("#### Exchange:",address(router));
         
     }
 

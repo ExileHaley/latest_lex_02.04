@@ -38,18 +38,18 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
             rate: uint64(3e15 / day)
         });
         stakePlans[1] = Models.StakePlan({
-            duration: 15 days,
-            claimInterval: 15 days,
+            duration: 3 days,
+            claimInterval: 2 days,
             rate: uint64(6e15 / day)
         });
         stakePlans[2] = Models.StakePlan({
-            duration: 30 days,
-            claimInterval: 15 days,
+            duration: 5 days,
+            claimInterval: 2 days,
             rate: uint64(12e15 / day)
         });
         stakePlans[3] = Models.StakePlan({
-            duration: 90 days,
-            claimInterval: 10 days,
+            duration: 7 days,
+            claimInterval: 2 days,
             rate: uint64(13e15 / day)
         });
     }

@@ -1,14 +1,15 @@
-### contract address:
-#### Lex token: 0xbE0b36cA2bCc6DEb811B1F6F634d650cB3EB428E
-#### Leo token: 0x5a2Cd7311dAD231c7fb62c632176388724Ea6742
-#### USDT test token: 0x33197a1d84Ec164413853B227174166c71475Db4
+  ### contract address:
+  #### Lex token: 0x30585C4b59ff47fd2928B2E8224e3C7f7E21DF56
+  #### Leo token: 0x31840E26dF9eD849389cB8eC07cAb5E7c2fAD85D
+  #### USDT test token: 0xD365DcCFB132a23eFb5DFaaB8656f52da90B4EAE
 =========================================================
-#### Treasury: 0xDc2cEdb481c18d9bE48ecC9118f64B85F1c539A4
-#### TreasuryLiquidity: 0xae33fc0C731ec15BB57cCD8D9FA11317498820d2
-#### NodeDividends: 0xc1534f77813e9f41132e2188D1e40f7Ca9C925F3
-#### Queue: 0x3E03ad2f51d5D0584B835Ab4069C77f1d882DF34
-#### Referrals: 0xda6E96c707c703F556081d2F2C99AE434aEE7C46
-#### Router: 0x5c51bd302F867e80A50340F5DA74F39537ea6996
+  #### Treasury: 0x86398820e4cf3F18bD06e6e0F2e5d643DBAFA7f7
+  #### TreasuryLiquidity: 0x70021D512315bEd5017184dA8112290b0997099a
+  #### NodeDividends: 0x9b080F0A7DE4E900cBcB2534a68Cf013E0dec644
+  #### Queue: 0xe257447B6689340921324495eda352e9b07b49E7
+  #### Referrals: 0x1C714eDe5345514bF8Bb0Fc431B95741a92368b5
+  #### Router: 0xAd135b18607E50189100e0dbbC74284F624DB3e7
+  #### Exchange: 0xAd135b18607E50189100e0dbbC74284F624DB3e7
 
 #### 质押、赎回、重新质押、提取收益gas都给到1000万
 #### router func list
@@ -143,7 +144,14 @@ function userInfo(address user) external view returns(
 );
 //获取用户可提取收益
 function getUserAward(address user) public view returns(uint256);
+//用户获得的代币手续费分红
+function getTaxFeeAward(address user) public view returns(uint256);
+//用户获得的盈利税分红
+function getProfitFeeAward(address user) public view returns(uint256);
+//用户获得的做市商手续费分红
+function getStakeFeeAward(address user) public view returns(uint256);
 //提取收益
+
 function claim() external;
 
 ```
