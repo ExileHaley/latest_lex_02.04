@@ -40,6 +40,7 @@ library Models{
     struct StakePlan {
         uint32 duration;
         uint32 claimInterval;
+        uint32 window;
         uint64 rate;      // 1e18 精度
     }
 

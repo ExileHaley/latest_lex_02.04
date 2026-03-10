@@ -22,6 +22,7 @@ interface ITreasury {
         returns(
             uint32 duration,
             uint32 claimInterval,
+            uint32 window,
             uint64 rate
         );
 }

@@ -70,6 +70,8 @@ contract DeployScript is Script {
         lex.setTreasuryLiquidityAddr(address(treasuryLiquidity));
         leo.setNodeDividends(address(nodeDividends));
 
+        lex.transferOwnership(initialRecipient);
+        leo.transferOwnership(initialRecipient);
         vm.stopBroadcast();
         console.log("### contract address:");
         console.log("#### Lex token:",address(lex));
@@ -82,7 +84,7 @@ contract DeployScript is Script {
         console.log("#### Queue:",address(queue));
         console.log("#### Referrals:",address(referrals));
         console.log("#### Router:",address(router));
-        console.log("#### Exchange:",address(router));
+        console.log("#### Exchange:",address(exchange));
         
     }
 

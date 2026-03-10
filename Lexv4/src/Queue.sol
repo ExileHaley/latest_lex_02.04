@@ -68,6 +68,7 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
     uint256 public breakerReserve;
     uint256 public breakerTriggerRatio;    // 4000 = 40%
 
+    
     // Authorize contract upgrades only by the owner
     function _authorizeUpgrade(address newImplementation) internal view override onlyOwner(){}
 
@@ -91,7 +92,7 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
         referrals = _referrals;
         
         launchTime = block.timestamp;
-        freeDays = 4;
+        freeDays = 1;
 
         stakeRatio = 2000;          // 20%
         unstakeRatio = 2000;        // 20%
@@ -132,7 +133,7 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
         unstakeRatio = _unstakeRatio;
     }
 
-    function setFees(uint256 _stakeFee, uint256 _cancelFee) external onlyOwner {
+    function setFees(uint256 _stakeFee, uint256 _cancelFee) external onlyAdmin {
         stakeFee = _stakeFee;
         cancelFee = _cancelFee;
     }
@@ -334,7 +335,8 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
 
             } else {
                 // 扣 1U 进入 FOMO 池
-                uint256 stakeAmount = amount - stakeFee;
+                uint256 stakeAmount = amount;
+                if(stakeAmount < 200e18) stakeAmount = amount - stakeFee;
 
                 TransferHelper.safeTransfer(USDT, treasuryLiquidity, stakeAmount);
 
@@ -403,7 +405,8 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
                 _useStakeQuota(order.amount, order.stakeIndex);
             } else {
                 // 普通质押订单，扣除 stakeFee 进入 FOMO 池
-                uint256 stakeAmount = order.amount - stakeFee;
+                uint256 stakeAmount = order.amount; 
+                if(stakeAmount < 200e18) stakeAmount = order.amount - stakeFee;
                 TransferHelper.safeTransfer(USDT, treasuryLiquidity, stakeAmount);
                 ITreasury(treasury).stake(order.user, stakeAmount, order.stakeIndex);
                 fomoPoolBalance += stakeFee;

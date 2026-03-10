@@ -1,15 +1,15 @@
-  ### contract address:
-  #### Lex token: 0x30585C4b59ff47fd2928B2E8224e3C7f7E21DF56
-  #### Leo token: 0x31840E26dF9eD849389cB8eC07cAb5E7c2fAD85D
-  #### USDT test token: 0xD365DcCFB132a23eFb5DFaaB8656f52da90B4EAE
-=========================================================
-  #### Treasury: 0x86398820e4cf3F18bD06e6e0F2e5d643DBAFA7f7
-  #### TreasuryLiquidity: 0x70021D512315bEd5017184dA8112290b0997099a
-  #### NodeDividends: 0x9b080F0A7DE4E900cBcB2534a68Cf013E0dec644
-  #### Queue: 0xe257447B6689340921324495eda352e9b07b49E7
-  #### Referrals: 0x1C714eDe5345514bF8Bb0Fc431B95741a92368b5
-  #### Router: 0xAd135b18607E50189100e0dbbC74284F624DB3e7
-  #### Exchange: 0xAd135b18607E50189100e0dbbC74284F624DB3e7
+### contract address:
+  #### Lex token: 0x670372e8A1D71e65b86E39925B806B206CA450E5
+  #### Leo token: 0xa5A7F70F41D1F12CA2ddA32Ed7B55386fa326CEa
+  #### USDT test token: 0x6D1F1D97D01D8879451fE11Cd8c848a9fe4F8424
+  =========================================================
+  #### Treasury: 0x54bBc23FA34e57D652a2c0031f416e0932075199
+  #### TreasuryLiquidity: 0x772761F77D5d8b5094c2827AF94Ee2529a018CcE
+  #### NodeDividends: 0x3Ba073932d4cC326eC6aBbE7603A7A2C2fe92A9a
+  #### Queue: 0xF5dF25E7f9B6F20fC29cE0B1d038EBB6380BCbFe
+  #### Referrals: 0x2b7da4bDfca5153CA6ea40C547122413Bf4C9c61
+  #### Router: 0xE00c4A5998b08135C650D056646c0be4bB9B362b
+  #### Exchange: 0x96E2FF1dEfE8BaddA029fDaB3E0357105A82cC10
 
 #### 质押、赎回、重新质押、提取收益gas都给到1000万
 #### router func list
@@ -129,6 +129,8 @@ function getReferralInfo(address user)
             uint256 totalStaked, //当前用户的总质押数量
             uint256 performance //当前用户的伞下业绩
         );
+
+
 ```
 
 #### nodeDividends func list
@@ -195,3 +197,15 @@ function getEffectivePerformance(address[] memory users)
         view
         returns (Models.Effective[] memory);
 ```
+
+
+
+#### queue func list
+```solidity
+//获取管理地址
+function admin() external view returns(address);
+//管理员方法，用来设置质押和赎回额度的比例
+//这里20%就是 2000 / 10000，分母是万
+function setFees(uint256 _stakeFee, uint256 _cancelFee) external;
+```
+

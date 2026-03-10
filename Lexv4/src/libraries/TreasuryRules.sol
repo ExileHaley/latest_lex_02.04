@@ -138,7 +138,7 @@ library TreasuryRules {
         uint256 endTime = start + plan.duration;
 
         // 超过到期+24h不可领取
-        if (currentTime > endTime + 1 days) {
+        if (currentTime > endTime + plan.window) {
             return false;
         }
 
@@ -154,13 +154,13 @@ library TreasuryRules {
         if (periods > maxPeriods) periods = maxPeriods;
 
         // 当前周期是否已领取
-        if (periods <= order.claimedPeriods) {
-            return false;
-        }
+        // if (periods <= order.claimedPeriods) {
+        //     return false;
+        // }
 
-        // 当前时间是否在窗口（每周期允许领取24h）
+        // 当前时间是否在窗口
         uint256 claimWindowStart = start + periods * plan.claimInterval;
-        uint256 claimWindowEnd   = claimWindowStart + 1 days;
+        uint256 claimWindowEnd   = claimWindowStart + plan.window;
         return currentTime >= claimWindowStart && currentTime <= claimWindowEnd;
     }
 
@@ -290,11 +290,11 @@ library TreasuryRules {
 
         // ===== 3️⃣ 逾期罚金 =====
         uint256 maturityTime = order.startTime + plan.duration;
-        uint256 gracePeriodEnd = maturityTime + 1 days; // 到期后24小时内只有固定手续费
+        uint256 gracePeriodEnd = maturityTime + plan.window; // 到期后24小时内只有固定手续费
 
         overdueFee = 0;
         if(currentTime > gracePeriodEnd){
-            uint256 overdueDays = (currentTime - gracePeriodEnd) / 1 days;
+            uint256 overdueDays = (currentTime - gracePeriodEnd) / plan.window;
             overdueFee = principal * 10 / 100 * overdueDays;
             if(overdueFee > remaining){
                 overdueFee = remaining;

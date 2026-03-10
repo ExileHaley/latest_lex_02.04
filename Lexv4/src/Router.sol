@@ -175,10 +175,11 @@ contract Router is Ownable, ReentrancyGuard{
         Models.Order memory order = ITreasury(treasury).getUserOrders(user)[orderIndex];
 
 
-        (uint32 duration, uint32 claimInterval, uint64 rate) = ITreasury(treasury).stakePlans(order.stakeIndex);
+        (uint32 duration, uint32 claimInterval, uint32 window, uint64 rate) = ITreasury(treasury).stakePlans(order.stakeIndex);
         Models.StakePlan memory plan = Models.StakePlan({
             duration: duration,
             claimInterval: claimInterval,
+            window: window,
             rate: rate
         });
 

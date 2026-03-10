@@ -35,7 +35,6 @@ contract Referrals is Initializable, OwnableUpgradeable, UUPSUpgradeable, IRefer
         __Ownable_init(_msgSender());
         rootAddr = _rootAddr;
         lexv1 = _lexv1;
-        // vault = _vault;
         percentsForAward = [5, 5, 10, 15, 20, 25, 28, 30];
         // 等级门槛
         levelThresholds = [
@@ -260,47 +259,75 @@ contract Referrals is Initializable, OwnableUpgradeable, UUPSUpgradeable, IRefer
     function _updateLevel(address user) internal {
         Models.Referral storage r = referralInfo[user];
 
-        // 先判断是否满足基本条件
-        bool shouldBeInvalid = r.totalStaked < 1000 ether 
-                            || activeDirectReferralAddrSets[user].length() < 3;
-
-        if (shouldBeInvalid) {
-            // 如果已经是 INVALID 就不用写入了
-            if (r.level != Models.LevelType.INVALID) {
-                r.level = Models.LevelType.INVALID;
-            }
-            return;
-        }
-
         uint256 performance = r.performance;
-        Models.LevelType newLevel;
+        uint256 totalStaked = r.totalStaked;
+        uint256 active = activeDirectReferralAddrSets[user].length();
 
-        if (performance >= levelThresholds[6]) {
-            newLevel = Models.LevelType.L7;
-        } else if (performance >= levelThresholds[5]) {
-            newLevel = Models.LevelType.L6;
-        } else if (performance >= levelThresholds[4]) {
-            newLevel = Models.LevelType.L5;
-        } else if (performance >= levelThresholds[3]) {
-            newLevel = Models.LevelType.L4;
-        } else if (performance >= levelThresholds[2]) {
-            newLevel = Models.LevelType.L3;
-        } else if (performance >= levelThresholds[1]) {
-            newLevel = Models.LevelType.L2;
-        } else if (performance >= levelThresholds[0]) {
-            newLevel = Models.LevelType.L1;
-        } else {
-            newLevel = Models.LevelType.INVALID;
+        Models.LevelType newLevel = Models.LevelType.INVALID;
+
+        for (uint8 i = 7; i > 0; i--) {
+            uint256 minStake = i == 1 ? 500 ether : 1000 ether;
+
+            if (
+                performance >= levelThresholds[i-1] &&
+                totalStaked >= minStake &&
+                active >= 3
+            ) {
+                newLevel = Models.LevelType(i);
+                break;
+            }
         }
-        
-        Models.LevelType oldLevel = r.level;
 
-        if (oldLevel != newLevel) {
+        if (r.level != newLevel) {
             if (newLevel == Models.LevelType.INVALID) levelAddrSets.remove(user);
             else levelAddrSets.add(user);
             r.level = newLevel;
         }
     }
+    // function _updateLevel(address user) internal {
+    //     Models.Referral storage r = referralInfo[user];
+
+    //     // 先判断是否满足基本条件
+    //     bool shouldBeInvalid = r.totalStaked < 1000 ether 
+    //                         || activeDirectReferralAddrSets[user].length() < 3;
+
+    //     if (shouldBeInvalid) {
+    //         // 如果已经是 INVALID 就不用写入了
+    //         if (r.level != Models.LevelType.INVALID) {
+    //             r.level = Models.LevelType.INVALID;
+    //         }
+    //         return;
+    //     }
+
+    //     uint256 performance = r.performance;
+    //     Models.LevelType newLevel;
+
+    //     if (performance >= levelThresholds[6]) {
+    //         newLevel = Models.LevelType.L7;
+    //     } else if (performance >= levelThresholds[5]) {
+    //         newLevel = Models.LevelType.L6;
+    //     } else if (performance >= levelThresholds[4]) {
+    //         newLevel = Models.LevelType.L5;
+    //     } else if (performance >= levelThresholds[3]) {
+    //         newLevel = Models.LevelType.L4;
+    //     } else if (performance >= levelThresholds[2]) {
+    //         newLevel = Models.LevelType.L3;
+    //     } else if (performance >= levelThresholds[1]) {
+    //         newLevel = Models.LevelType.L2;
+    //     } else if (performance >= levelThresholds[0]) {
+    //         newLevel = Models.LevelType.L1;
+    //     } else {
+    //         newLevel = Models.LevelType.INVALID;
+    //     }
+        
+    //     Models.LevelType oldLevel = r.level;
+
+    //     if (oldLevel != newLevel) {
+    //         if (newLevel == Models.LevelType.INVALID) levelAddrSets.remove(user);
+    //         else levelAddrSets.add(user);
+    //         r.level = newLevel;
+    //     }
+    // }
 
 
     function _getEffectivePerformance(address user) internal view returns(uint256){
