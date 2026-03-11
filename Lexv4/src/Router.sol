@@ -157,10 +157,6 @@ contract Router is Ownable, ReentrancyGuard{
     function verifyReferralCode(address user) external view returns(bool){
         (,,,uint256 totalStaked,) = IReferrals(referrals).referralInfo(user);
         return totalStaked > 0;
-    }    
-
-    function getSystemStatus() external view returns(bool circuitBreaker){
-        circuitBreaker = IQueue(queue).circuitBreaker();
     }
 
     function getOrderStatus(address user, uint256 orderIndex) 
@@ -192,5 +188,9 @@ contract Router is Ownable, ReentrancyGuard{
 
         uint8 newStakeIndex = uint8(order.stakeIndex + 1);
         result = TreasuryRules.getStatus(order, plan, block.timestamp, paused, pauseTime, newStakeIndex, releaseRatePerDay);
+    }
+
+    function getQueueRange() external view returns(uint256 head, uint256 tail){
+        (head, tail) = IQueue(queue).getQueueRange();
     }
 }

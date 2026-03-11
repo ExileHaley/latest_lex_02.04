@@ -154,9 +154,9 @@ library TreasuryRules {
         if (periods > maxPeriods) periods = maxPeriods;
 
         // 当前周期是否已领取
-        // if (periods <= order.claimedPeriods) {
-        //     return false;
-        // }
+        if (periods <= order.claimedPeriods) {
+            return false;
+        }
 
         // 当前时间是否在窗口
         uint256 claimWindowStart = start + periods * plan.claimInterval;

@@ -44,7 +44,6 @@ contract NodeDividends is Initializable, OwnableUpgradeable, UUPSUpgradeable, IN
 
         bool isOut;             // 是否出局
     }
-
     mapping(address => User) public userInfo;
 
     address public nodeDividendsV1;
@@ -302,4 +301,6 @@ contract NodeDividends is Initializable, OwnableUpgradeable, UUPSUpgradeable, IN
     {
         TransferHelper.safeTransfer(token, to, amount);
     }
+
+    
 }

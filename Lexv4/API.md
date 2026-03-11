@@ -130,8 +130,18 @@ function getReferralInfo(address user)
             uint256 performance //当前用户的伞下业绩
         );
 
-
+//获取排队订单的首尾序号
+function getQueueRange() external view returns(uint256 head, uint256 tail);
 ```
+
+
+
+
+
+
+
+
+
 
 #### nodeDividends func list
 ```solidity
@@ -161,6 +171,8 @@ function claim() external;
 
 
 
+
+
 #### exchange func list
 ```solidity
 // 当前用户拥有的token购买额度，根据用户地址以及代币地址获取
@@ -185,7 +197,6 @@ function addAvailableLimit(address token, address[] memory users, uint256 amount
 
 
 
-
 #### 下面都是管理员方法
 #### referrals func list
 ```solidity
@@ -197,6 +208,8 @@ function getEffectivePerformance(address[] memory users)
         view
         returns (Models.Effective[] memory);
 ```
+
+
 
 
 
