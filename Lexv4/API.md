@@ -11,7 +11,7 @@
   #### Router: 0xE00c4A5998b08135C650D056646c0be4bB9B362b
   #### Exchange: 0x96E2FF1dEfE8BaddA029fDaB3E0357105A82cC10
 
-#### 质押、赎回、重新质押、提取收益gas都给到1000万
+#### RuleResult其中isFrozen返回的就是订单状态是否冻结
 #### router func list
 ```solidity
 // 获取系统状态，是否处于熔断中，true熔断中，false系统正常
@@ -58,7 +58,6 @@ struct RuleResult {
         bool canClaim;  //是否可以提取收益，可用作按钮置灰判断
         bool canUnstake; //是否可以赎回，可用作按钮置灰判断
         bool canRestake; //是否可以重新质押，可用作按钮置灰判断
-        //下面三个可以不用展示
         bool isFrozen; //当前订单是否熔断或冻结
         bool isExpired; //当前订单是否超过12个月
         bool isMatured; //当前订单是否到期

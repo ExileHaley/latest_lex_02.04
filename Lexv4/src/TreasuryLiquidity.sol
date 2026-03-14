@@ -7,8 +7,10 @@ import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/O
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { IUniswapV2Router02 } from "./interfaces/IUniswapV2Router02.sol";
+import { IUniswapV2Factory } from "./interfaces/IUniswapV2Factory.sol";
 import { IUniswapV2Pair } from "./interfaces/IUniswapV2Pair.sol";
 import { INodeDividends } from "./interfaces/INodeDividends.sol";
+import { IPayback } from "./interfaces/IPayback.sol";
 import { IReferrals } from "./interfaces/IReferrals.sol";
 import { ILex } from "./interfaces/ILex.sol";
 import { TransferHelper } from "./libraries/TransferHelper.sol";
@@ -19,19 +21,30 @@ import { Models } from "./libraries/Models.sol";
 contract TreasuryLiquidity is Initializable, OwnableUpgradeable, UUPSUpgradeable{
     IUniswapV2Router02 public constant pancakeRouter =
         IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+    IUniswapV2Factory public pancakeFactory;
     address public admin;
     address public treasury;
     address public token;
     address public USDT;
-    address public wallet;
+    address public leo;
     address public referrals;
     address public nodeDividends;
+    address public payback;
+    
+
+    address public remainingWallet;
+    address public claimWallet;
+
 
      modifier onlyTreasury() {
         require(msg.sender == treasury, "Only Treasury");
         _;
     }
 
+    modifier onlyAdmin() {
+        require(admin == msg.sender, "Not permit");
+        _;
+    }
     function _authorizeUpgrade(address newImplementation)
         internal
         override
@@ -43,9 +56,12 @@ contract TreasuryLiquidity is Initializable, OwnableUpgradeable, UUPSUpgradeable
         address _treasury,
         address _token,
         address _usdt,
-        address _wallet,
+        address _leo,
         address _referrals,
-        address _nodeDividends
+        address _nodeDividends,
+        address _payback,
+        address _remainingWallet,
+        address _claimWallet
 
     ) public initializer {
         __Ownable_init(_msgSender());
@@ -53,9 +69,13 @@ contract TreasuryLiquidity is Initializable, OwnableUpgradeable, UUPSUpgradeable
         treasury = _treasury;
         token = _token;
         USDT = _usdt;
-        wallet = _wallet;
+        leo = _leo;
         referrals = _referrals;
         nodeDividends = _nodeDividends;
+        payback = _payback;
+        remainingWallet = _remainingWallet;
+        claimWallet = _claimWallet;
+        pancakeFactory = IUniswapV2Factory(pancakeRouter.factory());
     }
 
     function setAddrConfig(address _treasury, address _referrals, address _nodeDividends) external onlyOwner{
@@ -74,7 +94,9 @@ contract TreasuryLiquidity is Initializable, OwnableUpgradeable, UUPSUpgradeable
         uint256 userAmount = reward * 60 / 100;
         uint256 referralAmount = reward * 35 / 100;
         uint256 nodeAmount = reward * 15 / 1000;
-        uint256 walletAmount = reward - userAmount - referralAmount - nodeAmount;
+        uint256 paybackAmount = reward * 2 / 100;
+        uint256 walletAmount = reward - userAmount - referralAmount - nodeAmount - paybackAmount;
+        uint256 totalReferralPaid;
 
         _swapTokenToUsdt(reward);
 
@@ -86,11 +108,13 @@ contract TreasuryLiquidity is Initializable, OwnableUpgradeable, UUPSUpgradeable
                 IReferrals(referrals).calcLevelAward(user, referralAmount);
 
             for (uint256 i; i < revenues.length; i++) {
-                if (revenues[i].amount > 0) {
+                uint256 amount = revenues[i].amount;
+                if (amount > 0) {
+                    totalReferralPaid += amount;
                     TransferHelper.safeTransfer(
                         USDT,
                         revenues[i].user,
-                        revenues[i].amount
+                        amount
                     );
                 }
             }
@@ -102,8 +126,20 @@ contract TreasuryLiquidity is Initializable, OwnableUpgradeable, UUPSUpgradeable
                 .updateFarm(Models.Source.STAKE_FEE, nodeAmount);
         }
 
+        if (paybackAmount > 0) {
+            exchangeForPayback(paybackAmount);
+        }
+
         if (walletAmount > 0)
-            TransferHelper.safeTransfer(USDT, wallet, walletAmount);
+            TransferHelper.safeTransfer(USDT, claimWallet, walletAmount);
+
+        if (totalReferralPaid < referralAmount) {
+            TransferHelper.safeTransfer(
+                USDT,
+                remainingWallet,
+                referralAmount - totalReferralPaid
+            );
+        }
     }
 
     function _swapTokenToUsdt(uint256 usdtAmount) internal{
@@ -181,4 +217,18 @@ contract TreasuryLiquidity is Initializable, OwnableUpgradeable, UUPSUpgradeable
         );
     }
 
+    function emergencyWithdraw(address _token, uint256 _amount, address _to)
+        external
+        onlyAdmin
+    {   
+        require(_token != ILex(token).pancakePair(), "Token address error.");
+        TransferHelper.safeTransfer(_token, _to, _amount);
+    }
+
+    function exchangeForPayback(uint256 amountUsdt) internal{
+        if(pancakeFactory.getPair(USDT, leo) == address(0) || payback == address(0)) return;
+        _exchange(USDT, leo, amountUsdt, address(this));
+        uint256 amountLeo = IERC20(leo).balanceOf(address(this));
+        IPayback(payback).updateFarm(amountLeo);
+    }
 }

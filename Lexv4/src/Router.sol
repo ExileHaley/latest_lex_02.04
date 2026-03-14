@@ -21,6 +21,8 @@ contract Router is Ownable, ReentrancyGuard{
     mapping(uint256 => uint256) public maxValueOfStakeIndex;
     mapping(address => bool) public alreadyExistsUser;
 
+    uint256 public stakingAmountLimit;
+
     constructor(
         address _treasury, 
         address _queue, 
@@ -32,6 +34,7 @@ contract Router is Ownable, ReentrancyGuard{
         referrals = _referrals;
         USDT = _USDT;
         maxValueOfStakeIndex[0] = 100e18;
+        stakingAmountLimit = 10000e18;
     }
 
     function setConfig(
@@ -44,6 +47,11 @@ contract Router is Ownable, ReentrancyGuard{
         referrals = _referrals;
     }
 
+    function setAmountLimit(uint256 amount) external onlyOwner{
+        require(amount * 1e18 >= 100e18, "ERROR_AMOUNT_LIMIT.");
+        stakingAmountLimit = amount * 1e18;
+    }
+
     function referral(address parent) external nonReentrant{
         require(parent != address(0), "Zero address.");
         require(parent != msg.sender, "Error parent address.");
@@ -52,13 +60,17 @@ contract Router is Ownable, ReentrancyGuard{
 
 
     function stake(uint256 amount, uint8 stakeIndex) external nonReentrant{
+        require(stakingAmountLimit >= amount, "ERROR_STAKING_AMOUNT.");
         require(stakeIndex < 4, "ERROR_STAKE_INDEX.");
         uint256 maxLimit = maxValueOfStakeIndex[stakeIndex];
         if(maxLimit > 0) require(maxLimit >= amount, "ERROR_AMOUNT.");
-        if(stakeIndex == 0) require(!alreadyExistsUser[msg.sender], "DISALLOWED_ORDER_TYPE.");
+
+        if(stakeIndex == 0) {
+            require(!alreadyExistsUser[msg.sender], "DISALLOWED_ORDER_TYPE.");
+            alreadyExistsUser[msg.sender] = true;
+        }
         TransferHelper.safeTransferFrom(USDT, msg.sender, queue, amount);
         IQueue(queue).stake(msg.sender, amount, stakeIndex);
-        alreadyExistsUser[msg.sender] = true;
     }
 
     function unstake(uint256 orderIndex) external nonReentrant{
