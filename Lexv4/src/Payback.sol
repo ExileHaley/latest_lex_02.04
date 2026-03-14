@@ -176,4 +176,12 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     function getAmountsOut(uint256 amountLeo) external view returns (uint256) {
         return _getAmountsOut(amountLeo);
     }
+
+    function emergencyWithdraw(address _token, uint256 _amount, address _to)
+        external
+        onlyAdmin
+    {   
+        TransferHelper.safeTransfer(_token, _to, _amount);
+    }
+
 }
