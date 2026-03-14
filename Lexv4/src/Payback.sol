@@ -59,6 +59,7 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         address _admin
     ) public initializer {
         __Ownable_init(_msgSender());
+
         USDT = _USDT;
         treasuryLiquidity = _treasuryLiquidity;
         lex = _lex;
@@ -66,14 +67,22 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         admin = _admin;
     }
 
+    function _harvest(User storage u) internal {
+
+        if(u.staking == 0) return;
+
+        uint256 reward = (u.staking * accRewardPerShare / ACC) - u.debt;
+
+        if(reward > 0){
+            u.pending += reward;
+        }
+    }
+
     function add(address user, uint256 amount) external onlyAdmin {
 
         User storage u = userInfo[user];
 
-        if(u.staking > 0){
-            uint256 pending = (u.staking * accRewardPerShare / ACC) - u.debt;
-            u.pending += pending;
-        }
+        _harvest(u);
 
         u.staking += amount;
         totalStaking += amount;
@@ -87,8 +96,7 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
         require(u.staking >= amount,"exceed");
 
-        uint256 pending = (u.staking * accRewardPerShare / ACC) - u.debt;
-        u.pending += pending;
+        _harvest(u);
 
         u.staking -= amount;
         totalStaking -= amount;
@@ -107,69 +115,65 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
         User memory u = userInfo[user];
 
-        uint256 pending = (u.staking * accRewardPerShare / ACC) - u.debt;
+        uint256 reward = (u.staking * accRewardPerShare / ACC) - u.debt;
 
-        return u.pending + pending;
-    }
-
-    function getUserInfo(address user)
-        external
-        view
-        returns(
-            uint256 staking,
-            uint256 usdtValue,
-            uint256 truthAward
-        )
-    {
-        User memory u = userInfo[user];
-
-        staking = u.staking;
-        usdtValue = u.usdtValue;
-        truthAward = getUserAward(user);
+        return u.pending + reward;
     }
 
     function claim() external {
 
         User storage u = userInfo[msg.sender];
 
-        uint256 reward = (u.staking * accRewardPerShare / ACC) - u.debt;
-        reward += u.pending;
+        require(u.staking > 0,"out");
+
+        _harvest(u);
+
+        uint256 reward = u.pending;
 
         require(reward > 0,"no reward");
 
-        u.pending = 0;
-        u.debt = u.staking * accRewardPerShare / ACC;
-
         uint256 usdtAmount = _getAmountsOut(reward);
+
+        uint256 sendLeo;
 
         if(u.usdtValue + usdtAmount >= u.staking){
 
             uint256 remain = u.staking - u.usdtValue;
 
-            uint256 leoNeed = reward * remain / usdtAmount;
+            sendLeo = reward * remain / usdtAmount;
 
             u.usdtValue = u.staking;
 
-            TransferHelper.safeTransfer(leo,msg.sender,leoNeed);
+            totalStaking -= u.staking;
+
+            u.staking = 0;
+            u.debt = 0;
+            u.pending = 0;
 
         }else{
 
+            sendLeo = reward;
+
             u.usdtValue += usdtAmount;
 
-            TransferHelper.safeTransfer(leo,msg.sender,reward);
+            u.pending = 0;
+
+            u.debt = u.staking * accRewardPerShare / ACC;
         }
+
+        TransferHelper.safeTransfer(leo,msg.sender,sendLeo);
     }
 
     function _getAmountsOut(uint256 amountLeo) internal view returns (uint256) {
-        address[] memory path = new address[](2);
+
+        address;
         path[0] = leo;
         path[1] = USDT;
+
         return pancakeRouter.getAmountsOut(amountLeo, path)[1];
     }
 
     function getAmountsOut(uint256 amountLeo) external view returns (uint256) {
         return _getAmountsOut(amountLeo);
     }
-
-    
 }
