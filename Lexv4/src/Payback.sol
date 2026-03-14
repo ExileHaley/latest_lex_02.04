@@ -33,6 +33,7 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     uint256 public totalStaking;
     uint256 public accRewardPerShare;
+    uint256 public dividendsRate;
 
     modifier onlyFarm() {
         require(msg.sender == treasuryLiquidity || msg.sender == lex, "Not permit.");
@@ -65,28 +66,26 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         lex = _lex;
         leo = _leo;
         admin = _admin;
+        dividendsRate = 70;
     }
 
     function _harvest(User storage u) internal {
-
         if(u.staking == 0) return;
-
         uint256 reward = (u.staking * accRewardPerShare / ACC) - u.debt;
-
         if(reward > 0){
             u.pending += reward;
         }
     }
 
+    function setDividendsRate(uint256 _dividendsRate) external onlyAdmin{
+        dividendsRate = _dividendsRate;
+    }
+
     function add(address user, uint256 amount) external onlyAdmin {
-
         User storage u = userInfo[user];
-
         _harvest(u);
-
         u.staking += amount;
         totalStaking += amount;
-
         u.debt = u.staking * accRewardPerShare / ACC;
     }
 
@@ -105,10 +104,11 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function updateFarm(uint256 amount) external onlyFarm {
+        uint256 dividendsAmount = amount * dividendsRate / 100;
 
         if(totalStaking == 0) return;
 
-        accRewardPerShare += amount * ACC / totalStaking;
+        accRewardPerShare += dividendsAmount * ACC / totalStaking;
     }
 
     function getUserAward(address user) public view returns(uint256){
@@ -166,7 +166,7 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     function _getAmountsOut(uint256 amountLeo) internal view returns (uint256) {
 
-        address;
+        address[] memory path = new address[](2);
         path[0] = leo;
         path[1] = USDT;
 

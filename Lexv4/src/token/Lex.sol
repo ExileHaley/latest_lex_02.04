@@ -109,7 +109,7 @@ contract Lex is ERC20, Ownable {
         allowlist[_addr] = true;
     }
 
-    function setNodeDividends(address _addr) external onlyOwner{
+    function setNodeDividendsAddr(address _addr) external onlyOwner{
         nodeDividends = _addr;
         allowlist[_addr] = true;
     }

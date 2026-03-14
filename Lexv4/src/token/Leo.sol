@@ -77,7 +77,7 @@ contract Leo is ERC20, Ownable{
             .createPair(address(this), USDT);
     }
 
-    function setNodeDividends(address _nodeDividends) external onlyOwner{
+    function setNodeDividendsAddr(address _nodeDividends) external onlyOwner{
         nodeDividends = _nodeDividends;
         allowlist[_nodeDividends] = true;
     }

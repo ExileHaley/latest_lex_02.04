@@ -5,7 +5,7 @@ import { Models } from "./Models.sol";
 
 library TreasuryRules {
 
-    /// @notice 计算正常状态下的订单理论累计收益
+    /// @notice Calculate the profit under normal conditions.
     function calculateNormal(
         Models.Order memory order,
         Models.StakePlan memory plan,
@@ -36,7 +36,7 @@ library TreasuryRules {
         return uint256(order.amount) * elapsed * plan.rate / 1e18;
     }
 
-    /// @notice 冻结释放
+    /// @notice Calculation of frozen release quantity.
     function calculateFrozenReleased(
         Models.Order memory order,
         uint256 currentTime,
@@ -56,7 +56,7 @@ library TreasuryRules {
         return uint256(order.frozenReward) * ratio / 1e18;
     }
 
-    /// @notice 计算订单可领取收益（考虑冻结或已领取）
+    /// @notice Calculate the earnings available for each order (considering whether they are frozen or already claimed).
     function pendingReward(
         Models.Order memory order,
         Models.StakePlan memory plan,
@@ -105,7 +105,7 @@ library TreasuryRules {
         if(order.createdAt >= pauseTime) return;
         if(order.freezeStart != 0) return;
 
-        // 收益只计算到 pauseTime
+        // Revenue is calculated up to the pauseTime.
         uint256 total = calculateNormal(order, plan, currentTime, pauseTime);
 
         uint256 unclaimed =
@@ -115,15 +115,14 @@ library TreasuryRules {
 
         order.frozenReward = uint128(unclaimed);
 
-        // 推荐使用 pauseTime
         order.freezeStart = pauseTime;
 
         order.freezeRound = pauseRound;
     }
 
 
-    /// @notice 检查订单是否在可提取收益窗口
-    /// @param frozen 是否冻结状态
+    /// @notice Check if the order is in the withdrawable earnings window
+    /// @param frozen (Is the device frozen?)
     function isInClaimWindow(
         Models.Order memory order,
         Models.StakePlan memory plan,
@@ -137,40 +136,40 @@ library TreasuryRules {
         uint256 start = order.startTime;
         uint256 endTime = start + plan.duration;
 
-        // 超过到期+24h不可领取
+        // Expired + Cannot be collected at the window
         if (currentTime > endTime + plan.window) {
             return false;
         }
 
-        // 当前时间至少超过第一次可领取间隔
+        // The current time is at least longer than the interval between the first claim.
         if (currentTime < start + plan.claimInterval) {
             return false;
         }
 
-        // 计算当前周期
+        // Calculate the current period
         uint256 elapsed = currentTime - start;
         uint256 periods = elapsed / plan.claimInterval;
         uint256 maxPeriods = plan.duration / plan.claimInterval;
         if (periods > maxPeriods) periods = maxPeriods;
 
-        // 当前周期是否已领取
+        // Has the current period been claimed
         if (periods <= order.claimedPeriods) {
             return false;
         }
 
-        // 当前时间是否在窗口
+        // Is the current time in the window
         uint256 claimWindowStart = start + periods * plan.claimInterval;
         uint256 claimWindowEnd   = claimWindowStart + plan.window;
         return currentTime >= claimWindowStart && currentTime <= claimWindowEnd;
     }
 
 
-    /// @notice 检查订单是否仍然活跃
+    /// @notice Check if the order is still active.
     function isActive(Models.Order memory order) internal pure {
         require(order.status == 0, "Order inactive");
     }
 
-    /// @notice 检查订单是否被冻结前的旧订单
+    /// @notice Check if the orders are old orders from before they were frozen.
     function isFrozenOldOrder(
         Models.Order memory order,
         uint32 pauseTime,
@@ -179,8 +178,8 @@ library TreasuryRules {
         return paused && order.createdAt < pauseTime;
     }
 
-    /// @notice 校验收益提取规则
-    /// @notice 验证收益提取规则，完全复用 isInClaimWindow
+    /// @notice Verify revenue extraction rules
+    /// @notice Verify the revenue extraction rules and fully reuse isInClaimWindow.
     function validateClaim(
         Models.Order memory order,
         Models.StakePlan memory plan,
@@ -190,14 +189,14 @@ library TreasuryRules {
         require(order.status == 0, "Order inactive");
         require(currentTime <= order.startTime + 365 days, "Order expired");
 
-        // 冻结状态随时可领取
+        // Frozen status, available for collection at any time
         if (frozen) return;
 
-        // 普通订单调用统一 claim window
+        // Regular orders call a unified claim window
         require(isInClaimWindow(order, plan, currentTime, frozen), "Not in claim window");
     }
 
-    //内部函数用于返回相关状态
+    /// @notice The inner function is used to return the relevant status.
     function _unstakeRule(
         Models.Order memory order,
         Models.StakePlan memory plan,
@@ -235,12 +234,12 @@ library TreasuryRules {
         }
     }
 
-    /// @notice 验证订单是否可赎回
-    /// @param order 订单信息
-    /// @param plan 对应质押计划
-    /// @param currentTime 当前时间戳
-    /// @param paused 是否为冻结前订单
-    /// @param pauseTime 冻结时间
+    /// @notice Verify if the order is redeemable
+    /// @param order order infos
+    /// @param plan Corresponding Pledge Plan
+    /// @param currentTime current time
+    /// @param paused Was this an order placed before the freeze
+    /// @param pauseTime paused time
     function validateUnstakePre(
         Models.Order memory order,
         Models.StakePlan memory plan,
@@ -255,18 +254,13 @@ library TreasuryRules {
     }
 
 
-    //本金赎回手续费，假设当前订单总质押本金1000usdt
-    //1.(claimed+frozenClaimed) * 90 /100，这个作为已经提取的本金，假设此时用户已提取总收益 = 100，那么此时本金逻辑上已经剩余100 - 90 = 910
-    //2.固定手续费10%，1000*10/100 = 100，此时本金逻辑上剩余910 - 100 = 810
-    //3.每超出24小时的罚金10%，假设目前已经是到期后25小时，到期后截止到期后24小时内只有固定手续费，多出来一个小时算罚金 1000 * 10 / 100 * 1 = 100
-    //4.用户赎回本金到账：1000 - 90(已提取收益的90%) - 100(固定手续费) - 100(超过到期后24小时的罚金) = 710
-    /// @notice 计算赎回本金和手续费（考虑已提取收益、固定手续费、逾期罚金）
-    /// @param order 订单信息
-    /// @param plan 对应质押计划
-    /// @param currentTime 当前时间戳
-    /// @return payout 用户实际到账本金
-    /// @return fixedFee 固定手续费（打给 wallet）
-    /// @return overdueFee 逾期罚金
+    /// @notice Calculate the redemption principal and fees (considering withdrawn profits, fixed fees, and late payment penalties).
+    /// @param order order memory
+    /// @param plan  plan memory
+    /// @param currentTime current time
+    /// @return payout The actual principal received by the user
+    /// @return fixedFee fixed fee
+    /// @return overdueFee Overdue penalty
     function calculateUnstakePrincipal(
         Models.Order memory order,
         Models.StakePlan memory plan,
@@ -275,22 +269,22 @@ library TreasuryRules {
 
         uint256 principal = order.amount;
 
-        // ===== 1️⃣ 已提取收益占用本金 =====
+        // ===== 1️⃣ Withdrawn profits have tied up principal =====
         uint256 claimedPrincipal = (order.claimed + order.frozenClaimed) * 90 / 100;
         require(claimedPrincipal <= principal, "Claimed exceeds principal");
 
         uint256 remaining = principal - claimedPrincipal;
 
-        // ===== 2️⃣ 固定手续费 10% =====
+        // ===== 2️⃣ Fixed Transaction Fee 10% =====
         fixedFee = principal * 10 / 100;
         if(fixedFee > remaining){
             fixedFee = remaining;
         }
         remaining -= fixedFee;
 
-        // ===== 3️⃣ 逾期罚金 =====
+        // ===== 3️⃣ Overdue Penalties =====
         uint256 maturityTime = order.startTime + plan.duration;
-        uint256 gracePeriodEnd = maturityTime + plan.window; // 到期后24小时内只有固定手续费
+        uint256 gracePeriodEnd = maturityTime + plan.window; 
 
         overdueFee = 0;
         if(currentTime > gracePeriodEnd){
@@ -302,12 +296,12 @@ library TreasuryRules {
             remaining -= overdueFee;
         }
 
-        // ===== 4️⃣ 剩余本金 =====
+        // ===== 4️⃣ Remaining Principal =====
         payout = remaining;
     }
 
 
-    /// @notice 验证再质押前置条件
+    /// @notice Verify the preconditions for re-pledge
     function _restakeRule(
         Models.Order memory order,
         Models.StakePlan memory plan,
@@ -316,15 +310,15 @@ library TreasuryRules {
         uint32 pauseTime,
         uint8 newStakeIndex
     ) internal pure returns (bool canRestake) {
-        // 先判断赎回规则
+        // First determine the redemption rules
         Models.UnstakeRule memory unstakeRule = _unstakeRule(order, plan, currentTime, paused, pauseTime);
 
-        // 冻结订单或未到期无法再质押
+        // Frozen orders or orders that have not yet expired and cannot be pledged again
         if(!unstakeRule.canUnstake) {
             return false;
         }
 
-        // 新的 stakeIndex 必须大于旧的 stakeIndex（首次 stakeIndex=0 特殊处理）
+        // The new stakeIndex must be greater than the old stakeIndex (special handling is required if stakeIndex is 0 for the first time).
         if(newStakeIndex < order.stakeIndex + (order.stakeIndex == 0 ? 1 : 0)){
             return false;
         }
@@ -332,7 +326,7 @@ library TreasuryRules {
         return true;
     }
 
-    // validateRestakePre 调用 view 函数
+
     function validateRestakePre(
         Models.Order memory order,
         Models.StakePlan memory plan,
@@ -344,12 +338,12 @@ library TreasuryRules {
         bool canRestake = _restakeRule(order, plan, currentTime, paused, pauseTime, newStakeIndex);
         require(canRestake, "Cannot restake");
 
-        // 再质押必须订单可赎回
+        // Re-pledged shares must be redeemable.
         Models.UnstakeRule memory unstakeRule = _unstakeRule(order, plan, currentTime, paused, pauseTime);
         require(unstakeRule.canUnstake, "Order not matured or expired");
     }
 
-    /// @notice 计算再质押可领取收益
+    /// @notice Calculate the repurchase yield
     function calculateRestakeReward(
         Models.Order memory order,
         Models.StakePlan memory plan,
@@ -365,11 +359,11 @@ library TreasuryRules {
             return 0;
         }
 
-        // 赎回奖励 = 可领取的收益（考虑冻结释放）
+        // Redemption reward = available earnings (considering frozen release)
         reward = pendingReward(order, plan, currentTime, 0, releaseRatePerDay);
     }   
 
-    /// @notice 返回订单当前状态信息（完全复用核心规则函数）
+    /// @notice Return order current status information
     function getStatus(
         Models.Order memory order,
         Models.StakePlan memory plan,
@@ -383,7 +377,8 @@ library TreasuryRules {
         uint256 maturityTime = start + plan.duration;
         uint256 expiryTime = start + 365 days;
 
-        // ===== 1️⃣ 冻结状态 =====
+        
+        // ===== 1️⃣ Frozen Status =====
         result.isFrozen = paused && order.createdAt < pauseTime;
 
         // ===== 2️⃣ claim =====
@@ -396,7 +391,36 @@ library TreasuryRules {
             releaseRatePerDay
         );
         result.canClaim = order.status == 0 && inWindow && reward > 0;
-        result.claimCountdown = result.canClaim ? 0 : type(uint256).max;
+        
+        if (result.canClaim) {
+            result.claimCountdown = 0;
+        } else {
+            // 已过期
+            if(currentTime > start + 365 days){
+                result.claimCountdown = type(uint256).max;
+            } 
+            else {
+
+                uint256 elapsed = currentTime > start ? currentTime - start : 0;
+
+                uint256 periods = elapsed / plan.claimInterval;
+                uint256 maxPeriods = plan.duration / plan.claimInterval;
+
+                // 已超过最后周期
+                if(periods >= maxPeriods){
+                    result.claimCountdown = type(uint256).max;
+                } 
+                else {
+
+                    uint256 nextWindowStart = start + (periods + 1) * plan.claimInterval;
+
+                    result.claimCountdown =
+                        nextWindowStart > currentTime
+                        ? nextWindowStart - currentTime
+                        : 0;
+                }
+            }
+        }
 
         // ===== 3️⃣ unstake =====
         Models.UnstakeRule memory unstakeRule = _unstakeRule(order, plan, currentTime, paused, pauseTime);

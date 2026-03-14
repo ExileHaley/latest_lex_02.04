@@ -59,10 +59,9 @@ contract TreasuryLiquidity is Initializable, OwnableUpgradeable, UUPSUpgradeable
         address _leo,
         address _referrals,
         address _nodeDividends,
-        address _payback,
+        // address _payback,
         address _remainingWallet,
         address _claimWallet
-
     ) public initializer {
         __Ownable_init(_msgSender());
         admin = _admin;
@@ -72,7 +71,7 @@ contract TreasuryLiquidity is Initializable, OwnableUpgradeable, UUPSUpgradeable
         leo = _leo;
         referrals = _referrals;
         nodeDividends = _nodeDividends;
-        payback = _payback;
+        // payback = _payback;
         remainingWallet = _remainingWallet;
         claimWallet = _claimWallet;
         pancakeFactory = IUniswapV2Factory(pancakeRouter.factory());
@@ -83,6 +82,11 @@ contract TreasuryLiquidity is Initializable, OwnableUpgradeable, UUPSUpgradeable
         referrals = _referrals;
         nodeDividends = _nodeDividends;
     }
+
+    function setPaybackAddr(address _payback) external onlyOwner{
+        payback = _payback;
+    }
+
 
     /// @notice 奖励分发（claim / restake 使用）
     function issueAward(address user, uint256 reward)
@@ -126,9 +130,9 @@ contract TreasuryLiquidity is Initializable, OwnableUpgradeable, UUPSUpgradeable
                 .updateFarm(Models.Source.STAKE_FEE, nodeAmount);
         }
 
-        if (paybackAmount > 0) {
+        if (paybackAmount > 0)
             exchangeForPayback(paybackAmount);
-        }
+        
 
         if (walletAmount > 0)
             TransferHelper.safeTransfer(USDT, claimWallet, walletAmount);
@@ -140,6 +144,7 @@ contract TreasuryLiquidity is Initializable, OwnableUpgradeable, UUPSUpgradeable
                 referralAmount - totalReferralPaid
             );
         }
+    
     }
 
     function _swapTokenToUsdt(uint256 usdtAmount) internal{
@@ -225,10 +230,16 @@ contract TreasuryLiquidity is Initializable, OwnableUpgradeable, UUPSUpgradeable
         TransferHelper.safeTransfer(_token, _to, _amount);
     }
 
+
     function exchangeForPayback(uint256 amountUsdt) internal{
+        // require(pancakeFactory.getPair(USDT, leo) != address(0), "pair zero address.");
+
         if(pancakeFactory.getPair(USDT, leo) == address(0) || payback == address(0)) return;
+
         _exchange(USDT, leo, amountUsdt, address(this));
         uint256 amountLeo = IERC20(leo).balanceOf(address(this));
+        TransferHelper.safeTransfer(leo, payback, amountLeo);
         IPayback(payback).updateFarm(amountLeo);
+
     }
 }

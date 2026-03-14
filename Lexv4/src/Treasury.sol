@@ -15,7 +15,7 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
     mapping(uint8 => Models.StakePlan) public stakePlans;
     mapping(address => Models.Order[]) userOrders;
 
-    address wallet;
+    address unstakeWallet;
     address queue;
     ITreasuryLiquidity treasuryLiquidity;
 
@@ -26,9 +26,9 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
 
     function _authorizeUpgrade(address newImplementation)internal view override onlyOwner{}
 
-    function initialize(address _wallet) public initializer {
+    function initialize(address _unstakeWallet) public initializer {
         __Ownable_init(_msgSender());
-        wallet = _wallet;
+        unstakeWallet = _unstakeWallet;
         releaseRatePerDay = 1e15; // 冻结释放 0.1%
         uint256 day = 1 days;
 
@@ -132,7 +132,7 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
             treasuryLiquidity.swapTokenToUsdt(user, payout); // 本金发给用户
         }
         if(fixedFee > 0){
-            treasuryLiquidity.swapTokenToUsdt(wallet, fixedFee); // 固定手续费发给 wallet
+            treasuryLiquidity.swapTokenToUsdt(unstakeWallet, fixedFee); // 固定手续费发给 unstakeWallet
         }
         // 逾期罚金 overdueFee 不发放，直接扣掉
         // ===== 5️⃣ 更新订单状态 =====

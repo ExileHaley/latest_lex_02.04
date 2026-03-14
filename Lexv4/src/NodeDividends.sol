@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.20;
 
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-
-import { Models } from "./libraries/Models.sol";
 import { TransferHelper } from "./libraries/TransferHelper.sol";
-import { INodeDividends } from "./interfaces/INodeDividends.sol";
+import { Models } from "./libraries/Models.sol";
 
 interface INodeDividendsV1 {
     function getMigrateInfo(address user)
@@ -16,55 +14,37 @@ interface INodeDividendsV1 {
         returns(address recommender, Models.NodeType nodeType, uint256 amount);
 }
 
-// enum Source{INVALID, TAX_FEE, PROFIT_FEE, STAKE_FEE}
-// enum NodeType{invalid, envoy, director, partner}
+contract NodeDividends is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
-//计算用户代币手续费分红数量：
-// 如果user是envoy，或者说stakingAmount == 500e18，这里能获取的最大奖励值就是500e18
-// 如果user是director，或者说stakingAmount == 2000e18，这里能获取的最大奖励值就是500e18 * 1.5
-// 如果user是partner，或者说stakingAmount == 5000e18，这里能获取的最大奖励值就是500e18 * 2
+    struct User {
+        Models.NodeType nodeType;       // 节点类型
+        uint256 stakingAmount;          // 质押量
 
-//计算用户代币盈利税分红数量
-// 如果user是envoy，或者说stakingAmount == 500e18，这里能获取的最大奖励值就是500e18
-// 如果user是director，或者说stakingAmount == 2000e18，这里能获取的最大奖励值就是500e18 * 2
-// 如果user是partner，或者说stakingAmount == 5000e18，这里能一直获取奖励
-    
-//计算用户质押税分红数量
-// 如果user是envoy，或者说stakingAmount == 500e18，这里能获取的最大奖励值就是500e18
-// 如果user是director，或者说stakingAmount == 2000e18，这里能获取的最大奖励值就是500e18 * 1.5
-// 如果user是partner，或者说stakingAmount == 5000e18，这里能获取的最大奖励值就是500e18 * 2
+        uint128 taxExtracted;           // 单项 tax 已提取
+        uint128 profitExtracted;        // 单项 profit 已提取
+        uint128 stakeExtracted;         // 单项 stake 已提取
+        uint128 extracted;              // 总提取量
 
-contract NodeDividends is Initializable, OwnableUpgradeable, UUPSUpgradeable, INodeDividends{
-    struct User{
-        Models.NodeType nodeType;
-        uint256 stakingAmount;
+        uint128 debtTax;                // 可选，暂未使用
+        uint128 debtProfit;
+        uint128 debtStake;
 
-        uint256 extracted;      // 已提取
-        uint256 debt;           // 初始债务
-
-        bool isOut;             // 是否出局
+        bool isOut;                     // 是否出局
     }
+
     mapping(address => User) public userInfo;
 
-    address public nodeDividendsV1;
     address public lex;
-
     address public treasuryLiquidity;
     address public admin;
     address public USDT;
+    address public nodeDividendsV1;
 
     mapping(Models.Source => uint256) public perStakingAward;
-    uint256 public decimals = 1e13;
     uint256 public totalStaking;
+    uint256 public constant DECIMALS = 1e13;
 
-    /* ========== 升级授权 ========== */
-
-    function _authorizeUpgrade(address newImplementation)
-        internal
-        view
-        override
-        onlyOwner
-    {}
+    function _authorizeUpgrade(address) internal view override onlyOwner {}
 
     function initialize(
         address _lex,
@@ -75,202 +55,143 @@ contract NodeDividends is Initializable, OwnableUpgradeable, UUPSUpgradeable, IN
         __Ownable_init(_msgSender());
         lex = _lex;
         nodeDividendsV1 = _nodeDividendsV1;
-        lex = _lex;
         admin = _admin;
         USDT = _USDT;
     }
 
     modifier onlyFarm() {
-        require(lex == msg.sender || treasuryLiquidity == msg.sender, "NOT_PERMIT.");
+        require(msg.sender == lex || msg.sender == treasuryLiquidity, "NOT_PERMIT.");
         _;
     }
 
     modifier onlyAdmin() {
-        require(admin == msg.sender, "NOT_PERMIT.");
+        require(msg.sender == admin, "NOT_PERMIT.");
         _;
     }
 
-    function setAddrConfig(address _treasuryLiquidity) external onlyOwner{
+    function setAddrConfig(address _treasuryLiquidity) external onlyOwner {
         treasuryLiquidity = _treasuryLiquidity;
     }
-    
-    /* ========== 总倍数函数 ========== */
 
-    function _getTotalMultiple(Models.NodeType nodeType)
-        internal
-        pure
-        returns(uint256)
-    {
+    /* ========== 单项/总封顶计算 ========== */
+
+    function _getTotalMultiple(Models.NodeType nodeType) internal pure returns(uint256) {
         if(nodeType == Models.NodeType.ENVOY) return 3;
         if(nodeType == Models.NodeType.DIRECTOR) return 5;
         if(nodeType == Models.NodeType.PARTNER) return type(uint256).max;
-
         return 0;
     }
 
-    function _getTotalCap(User storage u)
-        internal
-        view
-        returns(uint256)
-    {
+    function _getTotalCap(User storage u) internal view returns(uint256) {
         uint256 m = _getTotalMultiple(u.nodeType);
-        if(m == type(uint256).max) {
-            return type(uint256).max;
-        }
+        if(m == type(uint256).max) return type(uint256).max;
         return u.stakingAmount * m;
+    }
+
+    function _capSingle(uint256 extracted, uint256 pending, uint256 maxReward) internal pure returns(uint256) {
+        if(extracted >= maxReward) return 0;
+        uint256 remain = maxReward - extracted;
+        if(pending > remain) return remain;
+        return pending;
+    }
+
+    function _capTotal(uint256 extracted, uint256 pending, uint256 totalCap) internal pure returns(uint256) {
+        if(totalCap == type(uint256).max) return pending;
+        if(extracted >= totalCap) return 0;
+        uint256 remain = totalCap - extracted;
+        if(pending > remain) return remain;
+        return pending;
     }
 
     /* ========== 迁移 ========== */
 
-    function batchAdd(address[] memory users) external onlyOwner{
+    function batchAdd(address[] memory users) external onlyOwner {
         for(uint i=0; i<users.length; i++){
             User storage u = userInfo[users[i]];
-
             if(u.stakingAmount == 0){
-                (,Models.NodeType nodeType, uint256 stakingAmount) =
+                (, Models.NodeType nodeType, uint256 stakingAmount) = 
                     INodeDividendsV1(nodeDividendsV1).getMigrateInfo(users[i]);
 
                 u.nodeType = nodeType;
                 u.stakingAmount = stakingAmount;
 
-                uint256 totalPer =
-                    perStakingAward[Models.Source.TAX_FEE] +
-                    perStakingAward[Models.Source.PROFIT_FEE] +
-                    perStakingAward[Models.Source.STAKE_FEE];
+                uint256 totalPer = perStakingAward[Models.Source.TAX_FEE]
+                    + perStakingAward[Models.Source.PROFIT_FEE]
+                    + perStakingAward[Models.Source.STAKE_FEE];
 
-                u.debt = stakingAmount * totalPer / decimals;
+                totalPer = totalPer > 0 ? totalPer : DECIMALS; // 防止除零
+                u.debtTax = uint128(stakingAmount * perStakingAward[Models.Source.TAX_FEE] / DECIMALS);
+                u.debtProfit = uint128(stakingAmount * perStakingAward[Models.Source.PROFIT_FEE] / DECIMALS);
+                u.debtStake = uint128(stakingAmount * perStakingAward[Models.Source.STAKE_FEE] / DECIMALS);
 
                 totalStaking += stakingAmount;
             }
         }
     }
 
-    /* ========== 分红更新 ========== */
+    /* ========== 更新分红 ========== */
 
-    function updateFarm(Models.Source source, uint256 amount) external onlyFarm{
+    function updateFarm(Models.Source source, uint256 amount) external onlyFarm {
         if(totalStaking == 0) return;
-        perStakingAward[source] += amount * decimals / totalStaking;
+        perStakingAward[source] += amount * DECIMALS / totalStaking;
     }
 
-    /* ========== 单项封顶计算 ========== */
+    /* ========== 单项奖励计算 ========== */
 
-    function _cap(uint256 accumulated, uint256 maxReward)
-        internal
-        pure
-        returns(uint256)
-    {
-        if(accumulated > maxReward) {
-            return maxReward;
-        }
-        return accumulated;
-    }
-
-    function getTaxFeeAward(address user) public view returns(uint256){
+    function getTaxFeeAward(address user) public view returns(uint256) {
         User storage u = userInfo[user];
         if(u.stakingAmount == 0) return 0;
-
-        uint256 accumulated =
-            u.stakingAmount *
-            perStakingAward[Models.Source.TAX_FEE] /
-            decimals;
+        uint256 accumulated = u.stakingAmount * perStakingAward[Models.Source.TAX_FEE] / DECIMALS;
 
         uint256 maxReward;
+        if(u.nodeType == Models.NodeType.ENVOY) maxReward = u.stakingAmount;
+        else if(u.nodeType == Models.NodeType.DIRECTOR) maxReward = u.stakingAmount * 15 / 10;
+        else if(u.nodeType == Models.NodeType.PARTNER) maxReward = u.stakingAmount * 2;
 
-        if(u.nodeType == Models.NodeType.ENVOY){
-            maxReward = u.stakingAmount;
-        }
-        else if(u.nodeType == Models.NodeType.DIRECTOR){
-            maxReward = u.stakingAmount * 15 / 10;
-        }
-        else if(u.nodeType == Models.NodeType.PARTNER){
-            maxReward = u.stakingAmount * 2;
-        }
-
-        return _cap(accumulated, maxReward);
+        return _capSingle(u.taxExtracted, accumulated, maxReward);
     }
 
-    function getProfitFeeAward(address user) public view returns(uint256){
+    function getProfitFeeAward(address user) public view returns(uint256) {
         User storage u = userInfo[user];
         if(u.stakingAmount == 0) return 0;
+        uint256 accumulated = u.stakingAmount * perStakingAward[Models.Source.PROFIT_FEE] / DECIMALS;
 
-        uint256 accumulated =
-            u.stakingAmount *
-            perStakingAward[Models.Source.PROFIT_FEE] /
-            decimals;
-
-        if(u.nodeType == Models.NodeType.PARTNER){
-            return accumulated;
-        }
+        if(u.nodeType == Models.NodeType.PARTNER) return accumulated;
 
         uint256 maxReward;
+        if(u.nodeType == Models.NodeType.ENVOY) maxReward = u.stakingAmount;
+        else if(u.nodeType == Models.NodeType.DIRECTOR) maxReward = u.stakingAmount * 2;
 
-        if(u.nodeType == Models.NodeType.ENVOY){
-            maxReward = u.stakingAmount;
-        }
-        else if(u.nodeType == Models.NodeType.DIRECTOR){
-            maxReward = u.stakingAmount * 2;
-        }
-
-        return _cap(accumulated, maxReward);
+        return _capSingle(u.profitExtracted, accumulated, maxReward);
     }
 
-    function getStakeFeeAward(address user) public view returns(uint256){
+    function getStakeFeeAward(address user) public view returns(uint256) {
         User storage u = userInfo[user];
         if(u.stakingAmount == 0) return 0;
-
-        uint256 accumulated =
-            u.stakingAmount *
-            perStakingAward[Models.Source.STAKE_FEE] /
-            decimals;
+        uint256 accumulated = u.stakingAmount * perStakingAward[Models.Source.STAKE_FEE] / DECIMALS;
 
         uint256 maxReward;
+        if(u.nodeType == Models.NodeType.ENVOY) maxReward = u.stakingAmount;
+        else if(u.nodeType == Models.NodeType.DIRECTOR) maxReward = u.stakingAmount * 15 / 10;
+        else if(u.nodeType == Models.NodeType.PARTNER) maxReward = u.stakingAmount * 2;
 
-        if(u.nodeType == Models.NodeType.ENVOY){
-            maxReward = u.stakingAmount;
-        }
-        else if(u.nodeType == Models.NodeType.DIRECTOR){
-            maxReward = u.stakingAmount * 15 / 10;
-        }
-        else if(u.nodeType == Models.NodeType.PARTNER){
-            maxReward = u.stakingAmount * 2;
-        }
-
-        return _cap(accumulated, maxReward);
+        return _capSingle(u.stakeExtracted, accumulated, maxReward);
     }
 
-    /* ========== 总收益计算（含总封顶） ========== */
+    /* ========== 总奖励计算 ========== */
 
-    function getUserAward(address user) public view returns(uint256){
+    function getUserAward(address user) public view returns(uint256) {
         User storage u = userInfo[user];
-
         if(u.stakingAmount == 0 || u.isOut) return 0;
 
-        uint256 totalEarned =
-            getTaxFeeAward(user)
-            + getProfitFeeAward(user)
-            + getStakeFeeAward(user);
+        uint256 tax = getTaxFeeAward(user);
+        uint256 profit = getProfitFeeAward(user);
+        uint256 stake = getStakeFeeAward(user);
 
-        if(totalEarned <= u.debt) return 0;
+        uint256 totalPending = tax + profit + stake;
+        totalPending = _capTotal(u.extracted, totalPending, _getTotalCap(u));
 
-        uint256 pending = totalEarned - u.debt;
-
-        if(pending <= u.extracted) return 0;
-
-        uint256 realPending = pending - u.extracted;
-
-        uint256 totalCap = _getTotalCap(u);
-
-        if(totalCap != type(uint256).max){
-            if(u.extracted >= totalCap) return 0;
-
-            uint256 remain = totalCap - u.extracted;
-
-            if(realPending > remain){
-                realPending = remain;
-            }
-        }
-
-        return realPending;
+        return totalPending;
     }
 
     /* ========== Claim ========== */
@@ -280,27 +201,29 @@ contract NodeDividends is Initializable, OwnableUpgradeable, UUPSUpgradeable, IN
         require(u.stakingAmount > 0, "NO_NODE");
         require(!u.isOut, "OUT");
 
-        uint256 pending = getUserAward(msg.sender);
-        require(pending > 0, "NO_REWARD");
+        uint256 tax = getTaxFeeAward(msg.sender);
+        uint256 profit = getProfitFeeAward(msg.sender);
+        uint256 stake = getStakeFeeAward(msg.sender);
 
-        u.extracted += pending;
+        uint256 total = tax + profit + stake;
+        total = _capTotal(u.extracted, total, _getTotalCap(u));
+        require(total > 0, "NO_REWARD");
 
-        uint256 totalCap = _getTotalCap(u);
-        if(totalCap != type(uint256).max){
-            if(u.extracted >= totalCap){
-                u.isOut = true;
-            }
-        }
+        u.taxExtracted += uint128(tax);
+        u.profitExtracted += uint128(profit);
+        u.stakeExtracted += uint128(stake);
+        u.extracted += uint128(total);
 
-        TransferHelper.safeTransfer(USDT, msg.sender, pending);
+        if(u.extracted >= _getTotalCap(u)) u.isOut = true;
+
+        TransferHelper.safeTransfer(USDT, msg.sender, total);
     }
 
+    /* ========== Admin emergency withdraw ========== */
+
     function emergencyWithdraw(address token, uint256 amount, address to)
-        external
-        onlyAdmin
+        external onlyAdmin
     {
         TransferHelper.safeTransfer(token, to, amount);
     }
-
-    
 }
