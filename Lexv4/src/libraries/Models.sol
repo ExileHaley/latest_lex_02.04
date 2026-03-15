@@ -2,19 +2,19 @@
 
 pragma solidity ^0.8.0;
 
-// | 字段             | 类型      | 分类    | 作用        |
-// | -------------- | ------- | ----- | --------- |
-// | amount         | uint128 | 本金    | 计算收益      |
-// | claimed        | uint128 | 正常收益  | 防重复领取     |
-// | claimedPeriods | uint32  | 周期控制  | claim窗口控制 |
-// | startTime      | uint32  | 时间    | 计息起点      |
-// | stakeIndex     | uint8   | 方案编号  | 决定利率/周期   |
-// | status         | uint8   | 状态    | 是否活跃      |
-// | createdAt      | uint32  | 创建时间  | 判断是否冻结    |
-// | frozenReward   | uint128 | 冻结收益池 | 冻结释放总额    |
-// | frozenClaimed  | uint128 | 已释放   | 防重复释放     |
-// | freezeStart    | uint32  | 冻结时间  | 计算释放比例    |
-// | freezeRound    | uint32  | 冻结轮次  | 防止重复冻结    |
+// | field          | type    |         
+// | -------------- | ------- | ---------------- 
+// | amount         | uint128 | principal        
+// | claimed        | uint128 | withdrawn earnings 
+// | claimedPeriods | uint32  | claim window          
+// | startTime      | uint32  | staking time - Interest start time
+// | stakeIndex     | uint8   | plan number -  Determine the interest rate/cycle
+// | status         | uint8   | status - 0/staking｜｜1/unstaked
+// | createdAt      | uint32  | create time - Determine whether to freeze
+// | frozenReward   | uint128 | freeze revenue pool
+// | frozenClaimed  | uint128 | withdrawn frozen earnings 
+// | freezeStart    | uint32  | freeze time
+// | freezeRound    | uint32  | prevent repeated freezing
 
 library Models{
     enum LevelType{INVALID, L1, L2, L3, L4, L5, L6, L7}
