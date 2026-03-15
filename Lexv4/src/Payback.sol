@@ -8,7 +8,8 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { IUniswapV2Router02 } from "./interfaces/IUniswapV2Router02.sol";
 import { TransferHelper } from "./libraries/TransferHelper.sol";
-
+import { IUniswapV2Pair } from "./interfaces/IUniswapV2Pair.sol";
+import { ILeo } from "./interfaces/ILeo.sol";
 contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     IUniswapV2Router02 public constant pancakeRouter =
@@ -112,13 +113,30 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function getUserAward(address user) public view returns(uint256){
-
         User memory u = userInfo[user];
+        if(u.staking == 0) return 0;
 
+        // 当前可领取总奖励
         uint256 reward = (u.staking * accRewardPerShare / ACC) - u.debt;
+        uint256 totalReward = u.pending + reward;
 
-        return u.pending + reward;
+        if(totalReward == 0) return 0;
+
+        // 当前奖励对应的 USDT
+        uint256 usdtAmount = _getAmountsOut(leo, USDT, totalReward);
+        if(usdtAmount == 0) return 0;
+
+        // 剩余可兑换 USDT
+        uint256 remaining = u.staking > u.usdtValue ? u.staking - u.usdtValue : 0;
+
+        // 如果超过封顶，按比例缩放 LEO
+        if(usdtAmount >= remaining && remaining > 0){
+            return _getAmountsOut(USDT, leo, remaining);
+        }
+
+        return totalReward;
     }
+
 
     function claim() external {
 
@@ -132,7 +150,7 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
         require(reward > 0,"no reward");
 
-        uint256 usdtAmount = _getAmountsOut(reward);
+        uint256 usdtAmount = _getAmountsOut(leo, USDT, reward);
 
         uint256 sendLeo;
 
@@ -140,7 +158,7 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
             uint256 remain = u.staking - u.usdtValue;
 
-            sendLeo = reward * remain / usdtAmount;
+            sendLeo = _getAmountsOut(USDT, leo, remain);
 
             u.usdtValue = u.staking;
 
@@ -164,18 +182,15 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         TransferHelper.safeTransfer(leo,msg.sender,sendLeo);
     }
 
-    function _getAmountsOut(uint256 amountLeo) internal view returns (uint256) {
+    function _getAmountsOut(address fromToken, address toToken, uint256 fromAmount) public view returns (uint256) {
 
         address[] memory path = new address[](2);
-        path[0] = leo;
-        path[1] = USDT;
+        path[0] = fromToken;
+        path[1] = toToken;
 
-        return pancakeRouter.getAmountsOut(amountLeo, path)[1];
+        return pancakeRouter.getAmountsOut(fromAmount, path)[1];
     }
 
-    function getAmountsOut(uint256 amountLeo) external view returns (uint256) {
-        return _getAmountsOut(amountLeo);
-    }
 
     function emergencyWithdraw(address _token, uint256 _amount, address _to)
         external
@@ -184,4 +199,10 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         TransferHelper.safeTransfer(_token, _to, _amount);
     }
 
+    function getUserInfo(address user) external view returns(uint256 staking, uint256 extracted, uint256 truthAward){
+        User memory u = userInfo[user];
+        staking = u.staking;
+        extracted = u.usdtValue;
+        truthAward = getUserAward(user);
+    }
 }

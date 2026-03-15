@@ -48,8 +48,8 @@ contract Router is Ownable, ReentrancyGuard{
     }
 
     function setAmountLimit(uint256 amount) external onlyOwner{
-        require(amount * 1e18 >= 100e18, "ERROR_AMOUNT_LIMIT.");
-        stakingAmountLimit = amount * 1e18;
+        require(amount >= 100e18, "ERROR_AMOUNT_LIMIT.");
+        stakingAmountLimit = amount;
     }
 
     function referral(address parent) external nonReentrant{

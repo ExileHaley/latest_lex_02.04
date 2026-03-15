@@ -372,8 +372,8 @@ contract RouterTest is Test{
         
         vm.warp(block.timestamp + 1 hours);
         (, Models.RuleResult memory result) = router.getOrderStatus(user, 0);
-        console.log("claim count down:", result.claimCountdown);
-        console.log("unstake count down:", result.unstakeCountdown);
+        assertEq(result.claimCountdown, 2 hours);
+        assertEq(result.unstakeCountdown, 47 hours);
         assertEq(result.canClaim, false);
 
         vm.warp(block.timestamp + 2 hours);
@@ -382,64 +382,176 @@ contract RouterTest is Test{
         assertEq(result0.claimCountdown, 0);
         assertEq(result0.canClaim, true);
         _claim_utils(user, 0);
+        
+        assertEq(nodeDividends.getUserAward(node_test_user0), nodeDividends.getStakeFeeAward(node_test_user0));
+        assertEq(nodeDividends.getUserAward(node_test_user1), nodeDividends.getStakeFeeAward(node_test_user1));
 
-        uint256 test_user0_payback_award = payback.getUserAward(node_test_user0);
-        uint256 test_user1_payback_award = payback.getUserAward(node_test_user1);
-
-        uint256 test_user0_node_award = nodeDividends.getUserAward(node_test_user0);
-        uint256 test_user1_node_award = nodeDividends.getUserAward(node_test_user1);
-        console.log("payback_award_user0:", test_user0_payback_award);
-        console.log("payback_award_user1:", test_user1_payback_award);
-        console.log("leo balance of payback:", leo.balanceOf(address(payback)));
-
-        console.log("node_award_user0:", test_user0_node_award);
-        console.log("node_award_user1:", test_user1_node_award);
-        console.log("usdt balance of node:", USDT.balanceOf(address(nodeDividends)));
- 
-
-        // console.log("After claim balance of user:", USDT.balanceOf(user) / 1e18);
-        // (uint256 truthAward0, Models.RuleResult memory result0) = router.getOrderStatus(user, 0);
-
-        // Models.Order[] memory orders = router.getUserOrders(user);
-        // console.log("claimed:", orders[0].claimed);
-        // console.log("frozenClaimed:", orders[0].frozenClaimed);
-
-
-        // assertEq(truthAward0, 0);
-        // assertEq(result0.canClaim, false);
-        // assertEq(result0.canRestake, true);
-        // assertEq(result0.canUnstake, true);
-
-        // _unstake_utils(user, 0);
-        // console.log("After unstake balance of user:", USDT.balanceOf(user) / 1e18);
+        vm.warp(block.timestamp + 1 hours);
+        (, Models.RuleResult memory result1) = router.getOrderStatus(user, 0);
+        assertEq(result1.claimCountdown, 2 hours);
+        assertEq(result1.canClaim, false);
     }
 
-//     function test_stake_freez() public {
-//         //user质押
-//         uint256 amount = 1000e18;
-//         _referral_and_stake_utils(user, amount, 1);
-//         vm.warp(block.timestamp + 1 days);
-//         //冻结
-//         _freez_utils();
-//         //user1质押
-//         address user1 = address(6);
-//         uint256 amount1 = 1000e18;
-//         _referral_and_stake_utils(user1, amount1, 1);
+    function test_stake_freez() public {
+        //user质押
+        uint256 amount = 1000e18;
+        _referral_and_stake_utils(user, amount, 1);
+        _freez_utils();
+        vm.warp(block.timestamp + 3 hours);
+        _claim_utils(user, 0);
 
-//         //让时间流逝
-//         vm.warp(block.timestamp + 15 days);
-//         //获取收益数据
-//         (uint256 truthAward, Models.RuleResult memory result) = router.getOrderStatus(user, 0);
-//         (uint256 truthAward1, Models.RuleResult memory result1) = router.getOrderStatus(user1, 0);
-//         console.log("Truth award for user:", truthAward);
-//         console.log("Truth award for user1:", truthAward1);
+        vm.warp(block.timestamp + 1 days);
+        (, Models.RuleResult memory result) = router.getOrderStatus(user, 0);
+        assertEq(result.isFrozen, true); //这里已经冻结了没问题
+        assertEq(result.canClaim, true); //那么这里随时可提取应该是true，实际是false
+        assertEq(result.claimCountdown, 0); //这里倒计时应该是0，实际是7200
+        assertEq(result.unstakeCountdown, type(uint256).max); 
+        assertEq(result.canRestake, false);
+        assertEq(result.canUnstake, false);
 
-//         assertEq(result.canRestake, false);
-//         assertEq(result.canUnstake, false);
+        vm.warp(block.timestamp + 21 hours);
+        (, Models.RuleResult memory result1) = router.getOrderStatus(user, 0);
+        assertEq(result1.canClaim, true); //这里应该是true，实际是false
+        assertEq(result1.claimCountdown, 0); //这里应该还是0，实际上是3600
 
-//         assertEq(result1.canUnstake, true);
-//         assertEq(result1.canRestake, true);
-//     }
+        assertEq(result.canRestake, false);
+        assertEq(result.canUnstake, false);
+
+        _claim_utils(user, 0);
+
+        (
+            ,
+            ,
+            ,
+            uint256 unstakeRemaining
+        ) = router.getCurrentQuota();
+        console.log("unstake quota:",unstakeRemaining);
+        // _unstake_utils(user, 0);
+    }
+
+    function test_stake_quota() public {
+        vm.warp(block.timestamp + 1 days);
+
+        vm.startPrank(admin);
+        queue.setQuotaRatios(100, 100);
+        vm.stopPrank();
+
+        (
+            uint256 stakeUsed,
+            uint256 stakeRemaining,
+            uint256 unstakeUsed,
+            uint256 unstakeRemaining
+        ) = router.getCurrentQuota();
+        assertEq(stakeUsed, 0);
+        console.log("stake remaining quota:", stakeRemaining / 1e18);
+        assertEq(unstakeUsed, 0);
+        console.log("unstake remaining quota:", unstakeRemaining / 1e18);
+
+        uint256 amount = 1000e18;
+        _referral_and_stake_utils(user, amount, 1);
+
+        (
+            ,,,,,,uint8 status
+        ) = router.getQueueInfo(0);
+        assertEq(status, 0);
+
+        vm.startPrank(user);
+        router.cancelQueue(0);
+        vm.stopPrank();
+        assertEq(USDT.balanceOf(user), 998e18);
+        (
+            ,,,uint256 poolBalance
+        ) = router.getFomoInfo();
+        assertEq(poolBalance, 2e18);
+    }
+
+    function test_nodeDividends() public {
+        vm.startPrank(address(treasuryLiquidity));
+        nodeDividends.updateFarm(Models.Source.STAKE_FEE, 100000e18);
+        vm.stopPrank();
+
+        assertEq(nodeDividends.getUserAward(node_test_user0), nodeDividends.getStakeFeeAward(node_test_user0));
+        assertEq(nodeDividends.getUserAward(node_test_user0), 500e18);
+        assertEq(nodeDividends.getUserAward(node_test_user1), nodeDividends.getStakeFeeAward(node_test_user1));
+        assertEq(nodeDividends.getUserAward(node_test_user1), 10000e18);
+
+
+        vm.startPrank(address(lex));
+        nodeDividends.updateFarm(Models.Source.PROFIT_FEE, 100000e18);
+        vm.stopPrank();
+
+        assertEq(nodeDividends.getUserAward(node_test_user0), 1000e18);
+        // console.log("Profit fee issue:", nodeDividends.getUserAward(node_test_user1) / 1e18);
+        uint256 award_test_user1 = nodeDividends.getUserAward(node_test_user1);
+
+        vm.startPrank(address(lex));
+        nodeDividends.updateFarm(Models.Source.TAX_FEE, 100000e18);
+        vm.stopPrank();
+        assertEq(nodeDividends.getUserAward(node_test_user0), 1500e18);
+        assertEq(nodeDividends.getUserAward(node_test_user1), award_test_user1 + uint256(10000e18));
+
+        _transfer_utils(address(USDT), initialRecipient, address(nodeDividends), 2000e18);
+
+        vm.startPrank(node_test_user0);
+        nodeDividends.claim();
+        vm.stopPrank();
+
+        assertEq(nodeDividends.getUserAward(node_test_user0), 0);
+    }
+
+    function test_payback_capped() public {
+
+
+        // treasuryLiquidity 更新 farm
+        vm.startPrank(address(treasuryLiquidity));
+        payback.updateFarm(1000e18);
+        vm.stopPrank();
+        uint256 award0 = payback.getUserAward(node_test_user0);
+        uint256 award1 = payback.getUserAward(node_test_user1);
+
+        // lex 更新 farm
+        vm.startPrank(address(lex));
+        payback.updateFarm(1000e18);
+        vm.stopPrank();
+        uint256 award2 = payback.getUserAward(node_test_user0);
+        uint256 award3 = payback.getUserAward(node_test_user1);
+
+        assertEq(award0, award2);
+        assertEq(award1, award3);
+
+        _transfer_utils(address(leo), initialRecipient, address(payback), 2000e18);
+        vm.startPrank(node_test_user0);
+        payback.claim();
+        vm.stopPrank();
+
+        assertEq(payback.getUserAward(node_test_user0), 0);
+        // // 模拟多轮 farm 分红
+        // for(uint256 i = 0; i < 5; i++) {
+            
+
+        //     // 检查用户封顶逻辑
+            
+
+        //     uint256 simulatedUsdt0 = payback._getAmountsOut(award0);
+        //     uint256 simulatedUsdt1 = payback._getAmountsOut(award1);
+
+        //     (uint256 staking0,,,) = payback.userInfo(node_test_user0);
+        //     (uint256 staking1,,,) = payback.userInfo(node_test_user1);
+
+        //     (,,,uint256 usdtValue0) = payback.userInfo(node_test_user0);
+        //     (,,,uint256 usdtValue1) = payback.userInfo(node_test_user1);
+
+        //     console.log("Round", i);
+        //     // console.log("user0 award:", award0 / 1e18, "USDT equivalent:", simulatedUsdt0 / 1e18, "staking remaining:", staking0 - usdtValue0);
+        //     // console.log("user1 award:", award1 / 1e18, "USDT equivalent:", simulatedUsdt1 / 1e18, "staking remaining:", staking1 - usdtValue1);
+
+        //     // 验证封顶不突破 staking
+        //     assertTrue(simulatedUsdt0 + usdtValue0 <= staking0, "user0 exceeded staking!");
+        //     assertTrue(simulatedUsdt1 + usdtValue1 <= staking1, "user1 exceeded staking!");
+        // }
+
+
+    }
 
 //     function test_claim_normalcy() public {
 //         uint256 amount = 1000e18;

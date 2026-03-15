@@ -363,6 +363,79 @@ library TreasuryRules {
         reward = pendingReward(order, plan, currentTime, 0, releaseRatePerDay);
     }   
 
+    // /// @notice Return order current status information
+    // function getStatus(
+    //     Models.Order memory order,
+    //     Models.StakePlan memory plan,
+    //     uint256 currentTime,
+    //     bool paused,
+    //     uint32 pauseTime,
+    //     uint8 newStakeIndex,
+    //     uint256 releaseRatePerDay
+    // ) internal pure returns (Models.RuleResult memory result) {
+    //     uint256 start = order.startTime;
+    //     uint256 maturityTime = start + plan.duration;
+    //     uint256 expiryTime = start + 365 days;
+
+        
+    //     // ===== 1️⃣ Frozen Status =====
+    //     result.isFrozen = paused && order.createdAt < pauseTime;
+
+    //     // ===== 2️⃣ claim =====
+    //     bool inWindow = isInClaimWindow(order, plan, currentTime, result.isFrozen);
+    //     uint256 reward = pendingReward(
+    //         order,
+    //         plan,
+    //         currentTime,
+    //         result.isFrozen ? pauseTime : 0,
+    //         releaseRatePerDay
+    //     );
+
+    //     result.canClaim = order.status == 0 && inWindow && reward > 0;
+        
+    //     if (result.canClaim) {
+    //         result.claimCountdown = 0;
+    //     } else {
+    //         // 已过期
+    //         if(currentTime > start + 365 days){
+    //             result.claimCountdown = type(uint256).max;
+    //         } 
+    //         else {
+
+    //             uint256 elapsed = currentTime > start ? currentTime - start : 0;
+
+    //             uint256 periods = elapsed / plan.claimInterval;
+    //             uint256 maxPeriods = plan.duration / plan.claimInterval;
+
+    //             // 已超过最后周期
+    //             if(periods >= maxPeriods){
+    //                 result.claimCountdown = type(uint256).max;
+    //             } 
+    //             else {
+
+    //                 uint256 nextWindowStart = start + (periods + 1) * plan.claimInterval;
+
+    //                 result.claimCountdown =
+    //                     nextWindowStart > currentTime
+    //                     ? nextWindowStart - currentTime
+    //                     : 0;
+    //             }
+    //         }
+    //     }
+
+    //     // ===== 3️⃣ unstake =====
+    //     Models.UnstakeRule memory unstakeRule = _unstakeRule(order, plan, currentTime, paused, pauseTime);
+    //     result.canUnstake = unstakeRule.canUnstake;
+    //     result.unstakeCountdown = unstakeRule.unstakeCountdown;
+
+    //     // ===== 4️⃣ restake =====
+    //     result.canRestake = _restakeRule(order, plan, currentTime, paused, pauseTime, newStakeIndex);
+
+    //     // ===== 5️⃣ 状态 =====
+    //     result.isExpired = currentTime > expiryTime;
+    //     result.isMatured = currentTime >= maturityTime;
+    // }
+
     /// @notice Return order current status information
     function getStatus(
         Models.Order memory order,
@@ -373,16 +446,16 @@ library TreasuryRules {
         uint8 newStakeIndex,
         uint256 releaseRatePerDay
     ) internal pure returns (Models.RuleResult memory result) {
+
         uint256 start = order.startTime;
         uint256 maturityTime = start + plan.duration;
         uint256 expiryTime = start + 365 days;
 
-        
         // ===== 1️⃣ Frozen Status =====
         result.isFrozen = paused && order.createdAt < pauseTime;
 
         // ===== 2️⃣ claim =====
-        bool inWindow = isInClaimWindow(order, plan, currentTime, result.isFrozen);
+
         uint256 reward = pendingReward(
             order,
             plan,
@@ -390,47 +463,81 @@ library TreasuryRules {
             result.isFrozen ? pauseTime : 0,
             releaseRatePerDay
         );
-        result.canClaim = order.status == 0 && inWindow && reward > 0;
-        
-        if (result.canClaim) {
+
+        // 🔴 修复点：冻结订单不再走claim window
+        if (result.isFrozen) {
+
+            result.canClaim = order.status == 0 && reward > 0;
+
+            // 冻结订单随时可以领取
             result.claimCountdown = 0;
+
         } else {
-            // 已过期
-            if(currentTime > start + 365 days){
-                result.claimCountdown = type(uint256).max;
-            } 
-            else {
 
-                uint256 elapsed = currentTime > start ? currentTime - start : 0;
+            bool inWindow = isInClaimWindow(
+                order,
+                plan,
+                currentTime,
+                false
+            );
 
-                uint256 periods = elapsed / plan.claimInterval;
-                uint256 maxPeriods = plan.duration / plan.claimInterval;
+            result.canClaim = order.status == 0 && inWindow && reward > 0;
 
-                // 已超过最后周期
-                if(periods >= maxPeriods){
+            if (result.canClaim) {
+
+                result.claimCountdown = 0;
+
+            } else {
+
+                if(currentTime > expiryTime){
+
                     result.claimCountdown = type(uint256).max;
-                } 
-                else {
 
-                    uint256 nextWindowStart = start + (periods + 1) * plan.claimInterval;
+                } else {
 
-                    result.claimCountdown =
-                        nextWindowStart > currentTime
-                        ? nextWindowStart - currentTime
+                    uint256 elapsed =
+                        currentTime > start
+                        ? currentTime - start
                         : 0;
+
+                    uint256 periods = elapsed / plan.claimInterval;
+
+                    uint256 maxPeriods =
+                        plan.duration / plan.claimInterval;
+
+                    if(periods >= maxPeriods){
+
+                        result.claimCountdown = type(uint256).max;
+
+                    } else {
+
+                        uint256 nextWindowStart =
+                            start + (periods + 1) * plan.claimInterval;
+
+                        result.claimCountdown =
+                            nextWindowStart > currentTime
+                            ? nextWindowStart - currentTime
+                            : 0;
+                    }
                 }
             }
         }
 
         // ===== 3️⃣ unstake =====
-        Models.UnstakeRule memory unstakeRule = _unstakeRule(order, plan, currentTime, paused, pauseTime);
+
+        Models.UnstakeRule memory unstakeRule =
+            _unstakeRule(order, plan, currentTime, paused, pauseTime);
+
         result.canUnstake = unstakeRule.canUnstake;
         result.unstakeCountdown = unstakeRule.unstakeCountdown;
 
         // ===== 4️⃣ restake =====
-        result.canRestake = _restakeRule(order, plan, currentTime, paused, pauseTime, newStakeIndex);
+
+        result.canRestake =
+            _restakeRule(order, plan, currentTime, paused, pauseTime, newStakeIndex);
 
         // ===== 5️⃣ 状态 =====
+
         result.isExpired = currentTime > expiryTime;
         result.isMatured = currentTime >= maturityTime;
     }

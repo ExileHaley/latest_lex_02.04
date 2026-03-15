@@ -1,17 +1,4 @@
-### contract address:
-  #### Lex token: 0x670372e8A1D71e65b86E39925B806B206CA450E5
-  #### Leo token: 0xa5A7F70F41D1F12CA2ddA32Ed7B55386fa326CEa
-  #### USDT test token: 0x6D1F1D97D01D8879451fE11Cd8c848a9fe4F8424
-  =========================================================
-  #### Treasury: 0x54bBc23FA34e57D652a2c0031f416e0932075199
-  #### TreasuryLiquidity: 0x772761F77D5d8b5094c2827AF94Ee2529a018CcE
-  #### NodeDividends: 0x3Ba073932d4cC326eC6aBbE7603A7A2C2fe92A9a
-  #### Queue: 0xF5dF25E7f9B6F20fC29cE0B1d038EBB6380BCbFe
-  #### Referrals: 0x2b7da4bDfca5153CA6ea40C547122413Bf4C9c61
-  #### Router: 0xE00c4A5998b08135C650D056646c0be4bB9B362b
-  #### Exchange: 0x96E2FF1dEfE8BaddA029fDaB3E0357105A82cC10
-
-#### RuleResult其中isFrozen返回的就是订单状态是否冻结
+### 用户方法列表
 #### router func list
 ```solidity
 // 获取系统状态，是否处于熔断中，true熔断中，false系统正常
@@ -134,14 +121,6 @@ function getQueueRange() external view returns(uint256 head, uint256 tail);
 ```
 
 
-
-
-
-
-
-
-
-
 #### nodeDividends func list
 ```solidity
 ////invalid(0/无效)，envoy(1/大使)，director(2/股东)，partner(3/合伙人)
@@ -168,10 +147,6 @@ function claim() external;
 ```
 
 
-
-
-
-
 #### exchange func list
 ```solidity
 // 当前用户拥有的token购买额度，根据用户地址以及代币地址获取
@@ -182,23 +157,55 @@ function getAmountOut(address fromToken, address toToken, uint256 fromAmount) ex
 function sellSubCoin(uint256 amountLeo) external;
 // 买入代币，token这里是要买入的代币地址，比如lex或者leo，amountUsdt是买入多少USDT的代币，所以这里需要USDT授权
 function buy(address token, uint256 amountUsdt) external;
+```
 
 
-///////////////////////////////////////管理员方法////////////////////////////////////////////////
-//获取管理员地址
-function admin() external view returns(address);
-//管理员批量减少token购买额度，users[i]的token对应购买额度减少amountUsdt
-function subAvailableLimit(address token, address[] memory users, uint256 amountUsdt) external;
-//管理员批量增加token购买额度，users[i]的token对应购买额度增加amountUsdt
-function addAvailableLimit(address token, address[] memory users, uint256 amountUsdt) external;
+#### payback func list
+```solidity
+//用户提取收益
+function claim() external;
+//用户信息查询，质押总额staking(USDT)，已提取的extracted(USDT)，当前真实可提取收益truthAward(leo)
+function getUserInfo(address user) external view returns(uint256 staking, uint256 extracted, uint256 truthAward);
 ```
 
 
 
 
-#### 下面都是管理员方法
-#### referrals func list
+
+### 管理员方法列表
+#### queue合约
 ```solidity
+//获取管理地址
+function admin() external view returns(address);
+//管理员方法，用来设置质押和赎回额度的比例
+//这里20%就是 2000 / 10000，分母是万，这里没有精度
+function setFees(uint256 _stakeFee, uint256 _cancelFee) external;
+//fomo池管理员开奖方法
+function drawFomoRewards() external;
+```
+
+#### router合约
+```solidity
+//获取管理员地址
+function owner() external view returns(address);
+//设置封顶质押数量，amount带上18位精度进来
+function setAmountLimit(uint256 amount) external;
+```
+
+#### exchange合约
+```solidity
+///////////////////////////////////////管理员方法////////////////////////////////////////////////
+//获取管理员地址
+function admin() external view returns(address);
+//管理员批量减少token购买额度，users[i]的token对应购买额度减少amountUsdt，amountUsdt带上18位精度进来
+function subAvailableLimit(address token, address[] memory users, uint256 amountUsdt) external;
+//管理员批量增加token购买额度，users[i]的token对应购买额度增加amountUsdt，amountUsdt带上18位精度进来
+function addAvailableLimit(address token, address[] memory users, uint256 amountUsdt) external;
+```
+
+#### referrals合约
+```solidity
+//这里是个view方法谁都能调用，直接给对接到管理端即可
 //获取级别从L1到L7的所有用户地址
 function getLevelUsers() external view returns(address[] memory);
 //通过级别用户的地址，批量获取对应地址的小区额度
@@ -208,16 +215,13 @@ function getEffectivePerformance(address[] memory users)
         returns (Models.Effective[] memory);
 ```
 
-
-
-
-
-#### queue func list
+#### payback合约
 ```solidity
-//获取管理地址
+//获取管理员地址
 function admin() external view returns(address);
-//管理员方法，用来设置质押和赎回额度的比例
-//这里20%就是 2000 / 10000，分母是万
-function setFees(uint256 _stakeFee, uint256 _cancelFee) external;
-```
+//给指定地址增加数量，amount把精度带进来18位，user用户地址
+function add(address user, uint256 amount) external;
+//给指定地址减少数量，amount把精度带进来18位，user用户地址
+function reduce(address user, uint256 amount) external;
 
+```

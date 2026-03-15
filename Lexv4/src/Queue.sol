@@ -127,7 +127,7 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
         router = _router;
     }
 
-    function setQuotaRatios(uint256 _stakeRatio, uint256 _unstakeRatio) external onlyOwner {
+    function setQuotaRatios(uint256 _stakeRatio, uint256 _unstakeRatio) external onlyAdmin {
         stakeRatio = _stakeRatio;
         unstakeRatio = _unstakeRatio;
     }
