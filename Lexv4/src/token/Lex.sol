@@ -181,7 +181,7 @@ contract Lex is ERC20, Ownable {
                     .updateFarm(received);
             }
         } else {
-            amountBurn += amountSub; // 动态转入 burn
+            amountBurn += amountSub; 
         }
 
         /* -------- Wallet -------- */
@@ -257,7 +257,7 @@ contract Lex is ERC20, Ownable {
             return;
         }
 
-        // 普通转账
+        
         super._update(from, to, amount);
         _migrateCost(from, to, amount);
     }
