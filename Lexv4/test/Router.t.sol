@@ -94,16 +94,10 @@ contract RouterTest is Test{
         referrals.setAddrConfig(address(queue), address(router));
         queue.setAddrConfig(address(router));
         nodeDividends.setAddrConfig(address(treasuryLiquidity));
-
         treasuryLiquidity.setPaybackAddr(address(payback));
 
-        lex.setNodeDividendsAddr(address(nodeDividends));
-        lex.setTreasuryLiquidityAddr(address(treasuryLiquidity));
-        lex.setPaybackAddr(address(payback));
-        lex.setLeoAddr(address(leo));
-
-        leo.setNodeDividendsAddr(address(nodeDividends));
-        leo.setPaybackAddr(address(payback));
+        lex.setAddrConfig(address(treasuryLiquidity), address(payback), address(nodeDividends), address(leo));
+        leo.setAddrConfig(address(nodeDividends), address(payback));
 
 
         address[] memory addrs = new address[](2);

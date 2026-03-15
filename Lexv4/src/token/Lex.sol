@@ -94,24 +94,19 @@ contract Lex is ERC20, Ownable {
     }
 
     /* ---------------- CONFIG ---------------- */
-
-    function setTreasuryLiquidityAddr(address _treasuryLiquidity) external onlyOwner {
+    function setAddrConfig(
+        address _treasuryLiquidity,
+        address _payback,
+        address _nodeDividends,
+        address _leo
+    ) external onlyOwner{
         treasuryLiquidity = _treasuryLiquidity;
-        allowlist[_treasuryLiquidity] = true;
-    }
-
-    function setLeoAddr(address _leo) external onlyOwner {
+        payback = _payback;
+        nodeDividends = _nodeDividends;
         leo = _leo;
-    }
-
-    function setPaybackAddr(address _addr) external onlyOwner {
-        payback = _addr;
-        allowlist[_addr] = true;
-    }
-
-    function setNodeDividendsAddr(address _addr) external onlyOwner{
-        nodeDividends = _addr;
-        allowlist[_addr] = true;
+        allowlist[_treasuryLiquidity] = true;
+        allowlist[_payback] = true;
+        allowlist[_nodeDividends] = true;
     }
 
 
