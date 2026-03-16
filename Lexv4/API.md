@@ -1,3 +1,17 @@
+### == contract address ==
+  #### Lex token: 0x7a7Dc63DC73b25eBCC6553BF58e7596056585b0F
+  #### Leo token: 0x128676c1Cc1F89d288bF96a43e38Ace0E4674ff0
+  #### USDT test token: 0x4b0F190B57FcC327091364D108d7ef9A5b7c6693
+  =========================================================
+  #### Treasury: 0xd050670225b66546067229527afB843d19487466
+  #### TreasuryLiquidity: 0xd6B948d9fBDd801866F724f76194544282BC8cf6
+  #### NodeDividends: 0x897F92941feE47B08BA0AD9266e3b30f07cDA0be
+  #### Queue: 0x3Bd0B24AE205ac0B3DE423498A33a943ad0Df166
+  #### Referrals: 0x3500057026F380FC5b3e5eE71047C55dD962a224
+  #### Router: 0xf3BFFB95DFb7D12b70fDB16D96ECDE797920cb71
+  #### Exchange: 0xFa05eb9cBC83201a6d793c06DC03B99F397C85Fa
+  #### Payback: 0xd904a36E12E2ebc2e7dC0477F462E5109d3b2f05
+
 ### 用户方法列表
 #### router func list
 ```solidity
