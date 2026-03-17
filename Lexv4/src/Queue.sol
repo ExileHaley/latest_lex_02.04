@@ -335,12 +335,15 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
             } else {
                 // 扣 1U 进入 FOMO 池
                 uint256 stakeAmount = amount;
-                if(stakeAmount < 200e18) stakeAmount = amount - stakeFee;
+                if(stakeAmount < 200e18) {
+                    stakeAmount = amount - stakeFee;
+                    fomoPoolBalance += stakeFee;
+                }
 
                 TransferHelper.safeTransfer(USDT, treasuryLiquidity, stakeAmount);
 
                 ITreasury(treasury).stake(user, stakeAmount, stakeIndex);
-                fomoPoolBalance += stakeFee;
+                
 
                 IReferrals(referrals).processStakeInfo(user, stakeAmount);
             }
@@ -405,10 +408,13 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
             } else {
                 // 普通质押订单，扣除 stakeFee 进入 FOMO 池
                 uint256 stakeAmount = order.amount; 
-                if(stakeAmount < 200e18) stakeAmount = order.amount - stakeFee;
+                if(stakeAmount < 200e18) {
+                    stakeAmount = order.amount - stakeFee;
+                    fomoPoolBalance += stakeFee;
+                }
                 TransferHelper.safeTransfer(USDT, treasuryLiquidity, stakeAmount);
                 ITreasury(treasury).stake(order.user, stakeAmount, order.stakeIndex);
-                fomoPoolBalance += stakeFee;
+                
 
                 _useStakeQuota(order.amount, order.stakeIndex);
 

@@ -100,13 +100,14 @@ contract DeployScript is Script {
 
         lex.transferOwnership(initialRecipient);
         leo.transferOwnership(initialRecipient);
-        router.transferOwnership(initialRecipient);
+        router.transferOwnership(universalAdmin);
         add_nodev1_data();
 
         vm.stopBroadcast();
 
         console.log("### contract address:");
         console.log("#### Lex token:",address(lex));
+        console.log("#### Lex`s pair:",lex.pancakePair());
         console.log("#### Leo token:",address(leo));
         console.log("#### USDT test token:",address(USDT));
         console.log("=========================================================");

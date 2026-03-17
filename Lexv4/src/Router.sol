@@ -205,4 +205,16 @@ contract Router is Ownable, ReentrancyGuard{
     function getQueueRange() external view returns(uint256 head, uint256 tail){
         (head, tail) = IQueue(queue).getQueueRange();
     }
+
+    function getStakePlans(uint8 stakeIndex) 
+        external 
+        view returns(
+            uint32 duration,
+            uint32 claimInterval,
+            uint32 window,
+            uint64 rate
+        )
+    {
+        (duration, claimInterval, window, rate) = ITreasury(treasury).stakePlans(stakeIndex);
+    }
 }
