@@ -67,6 +67,8 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
     bool    public circuitBreaker;
     uint256 public breakerReserve;
     uint256 public breakerTriggerRatio;    // 4000 = 40%
+
+    uint256[50] private __gap;
     
     // Authorize contract upgrades only by the owner
     function _authorizeUpgrade(address newImplementation) internal view override onlyOwner(){}

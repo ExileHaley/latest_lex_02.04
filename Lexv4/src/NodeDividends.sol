@@ -44,6 +44,8 @@ contract NodeDividends is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     uint256 public totalStaking;
     uint256 public constant DECIMALS = 1e13;
 
+    uint256[50] private __gap;
+    
     function _authorizeUpgrade(address) internal view override onlyOwner {}
 
     function initialize(

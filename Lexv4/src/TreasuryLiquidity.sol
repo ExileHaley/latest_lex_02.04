@@ -35,8 +35,8 @@ contract TreasuryLiquidity is Initializable, OwnableUpgradeable, UUPSUpgradeable
     address public remainingWallet;
     address public claimWallet;
 
-
-     modifier onlyTreasury() {
+    uint256[50] private __gap;
+    modifier onlyTreasury() {
         require(msg.sender == treasury, "Only Treasury");
         _;
     }

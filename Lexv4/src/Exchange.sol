@@ -33,6 +33,8 @@ contract Exchange is Initializable, OwnableUpgradeable, UUPSUpgradeable{
 
     uint256 public taxRate;
 
+    uint256[50] private __gap;
+    
     // Authorize contract upgrades only by the owner
     function _authorizeUpgrade(address newImplementation) internal view override onlyOwner(){}
 

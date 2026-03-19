@@ -270,7 +270,7 @@ library TreasuryRules {
         uint256 principal = order.amount;
 
         // ===== 1️⃣ Withdrawn profits have tied up principal =====
-        uint256 claimedPrincipal = (order.claimed + order.frozenClaimed) * 90 / 100;
+        uint256 claimedPrincipal = (order.claimed + order.frozenClaimed) * 54 / 100;
         require(claimedPrincipal <= principal, "Claimed exceeds principal");
 
         uint256 remaining = principal - claimedPrincipal;

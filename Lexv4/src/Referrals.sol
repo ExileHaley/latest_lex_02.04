@@ -24,7 +24,8 @@ contract Referrals is Initializable, OwnableUpgradeable, UUPSUpgradeable, IRefer
     address public lexv1;
 
     mapping(address => Models.Referral) public referralInfo;
-
+    uint256[50] private __gap;
+    
     // Authorize contract upgrades only by the owner
     function _authorizeUpgrade(address newImplementation) internal view override onlyOwner(){}
 

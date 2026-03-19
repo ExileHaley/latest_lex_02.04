@@ -36,6 +36,8 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     uint256 public accRewardPerShare;
     uint256 public dividendsRate;
 
+    uint256[50] private __gap;
+    
     modifier onlyFarm() {
         require(msg.sender == treasuryLiquidity || msg.sender == lex, "Not permit.");
         _;

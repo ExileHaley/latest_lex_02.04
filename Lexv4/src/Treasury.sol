@@ -23,7 +23,8 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
     uint32  public pauseTime;
     uint32  pauseRound;
     uint64  public releaseRatePerDay; // 1e15 = 0.1%
-
+    uint256[50] private __gap;
+    
     function _authorizeUpgrade(address newImplementation)internal view override onlyOwner{}
 
     function initialize(address _unstakeWallet) public initializer {
