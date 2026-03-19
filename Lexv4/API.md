@@ -204,8 +204,13 @@ function getUserInfo(address user) external view returns(uint256 staking, uint25
 //获取管理地址
 function admin() external view returns(address);
 //管理员方法，用来设置质押和赎回额度的比例
+
 //这里20%就是 2000 / 10000，分母是万，这里没有精度
+function setQuotaRatios(uint256 _stakeRatio, uint256 _unstakeRatio) external;
+
+//设置质押手续费和取消手续费
 function setFees(uint256 _stakeFee, uint256 _cancelFee) external;
+
 //fomo池管理员开奖方法
 function drawFomoRewards() external;
 ```

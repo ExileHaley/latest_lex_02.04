@@ -77,6 +77,7 @@ contract Referrals is Initializable, OwnableUpgradeable, UUPSUpgradeable, IRefer
         Models.Referral storage r = referralInfo[user];
         require(r.parent == address(0), "Already exists.");
         r.parent = parent;
+        directReferralAddrSets[parent].add(user);
     }
 
     function processStakeInfo(address user, uint256 amount) external onlyQueue{
@@ -85,7 +86,7 @@ contract Referrals is Initializable, OwnableUpgradeable, UUPSUpgradeable, IRefer
         r.totalStaked += amount;
 
         address current = referralInfo[user].parent; 
-        directReferralAddrSets[current].add(user);
+        // directReferralAddrSets[current].add(user);
 
         if(r.totalStaked >= 200e18) activeDirectReferralAddrSets[current].add(user);
 
@@ -284,50 +285,6 @@ contract Referrals is Initializable, OwnableUpgradeable, UUPSUpgradeable, IRefer
             r.level = newLevel;
         }
     }
-    // function _updateLevel(address user) internal {
-    //     Models.Referral storage r = referralInfo[user];
-
-    //     // 先判断是否满足基本条件
-    //     bool shouldBeInvalid = r.totalStaked < 1000 ether 
-    //                         || activeDirectReferralAddrSets[user].length() < 3;
-
-    //     if (shouldBeInvalid) {
-    //         // 如果已经是 INVALID 就不用写入了
-    //         if (r.level != Models.LevelType.INVALID) {
-    //             r.level = Models.LevelType.INVALID;
-    //         }
-    //         return;
-    //     }
-
-    //     uint256 performance = r.performance;
-    //     Models.LevelType newLevel;
-
-    //     if (performance >= levelThresholds[6]) {
-    //         newLevel = Models.LevelType.L7;
-    //     } else if (performance >= levelThresholds[5]) {
-    //         newLevel = Models.LevelType.L6;
-    //     } else if (performance >= levelThresholds[4]) {
-    //         newLevel = Models.LevelType.L5;
-    //     } else if (performance >= levelThresholds[3]) {
-    //         newLevel = Models.LevelType.L4;
-    //     } else if (performance >= levelThresholds[2]) {
-    //         newLevel = Models.LevelType.L3;
-    //     } else if (performance >= levelThresholds[1]) {
-    //         newLevel = Models.LevelType.L2;
-    //     } else if (performance >= levelThresholds[0]) {
-    //         newLevel = Models.LevelType.L1;
-    //     } else {
-    //         newLevel = Models.LevelType.INVALID;
-    //     }
-        
-    //     Models.LevelType oldLevel = r.level;
-
-    //     if (oldLevel != newLevel) {
-    //         if (newLevel == Models.LevelType.INVALID) levelAddrSets.remove(user);
-    //         else levelAddrSets.add(user);
-    //         r.level = newLevel;
-    //     }
-    // }
 
 
     function _getEffectivePerformance(address user) internal view returns(uint256){
