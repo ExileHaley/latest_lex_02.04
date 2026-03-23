@@ -126,14 +126,14 @@ contract Treasury is Initializable, OwnableUpgradeable, UUPSUpgradeable, ITreasu
         // ===== 2️⃣ 赎回前置检查 =====
         TreasuryRules.validateUnstakePre(order, plan, block.timestamp, paused, pauseTime);
         // ===== 3️⃣ 计算本金、固定手续费、逾期罚金 =====
-        (uint256 payout, uint256 fixedFee, ) =
+        (uint256 payout, uint256 fixedFee, uint256 claimPartFee) =
             TreasuryRules.calculateUnstakePrincipal(order, plan, block.timestamp);
         // ===== 4️⃣ 分发 =====
         if(payout > 0){
             treasuryLiquidity.swapTokenToUsdt(user, payout); // 本金发给用户
         }
-        if(fixedFee > 0){
-            treasuryLiquidity.swapTokenToUsdt(unstakeWallet, fixedFee); // 固定手续费发给 unstakeWallet
+        if(fixedFee > 0 || claimPartFee > 0){
+            treasuryLiquidity.swapTokenToUsdt(unstakeWallet, fixedFee + claimPartFee); // 固定手续费发给 unstakeWallet
         }
         // 逾期罚金 overdueFee 不发放，直接扣掉
         // ===== 5️⃣ 更新订单状态 =====

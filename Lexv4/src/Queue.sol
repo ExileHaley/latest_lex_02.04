@@ -11,7 +11,7 @@ import { IReferrals } from "./interfaces/IReferrals.sol";
 import { ILex } from "./interfaces/ILex.sol";
 import { ITreasury } from "./interfaces/ITreasury.sol";
 import { IQueue } from "./interfaces/IQueue.sol";
-
+import { Models } from "./libraries/Models.sol";
 
 contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
     address public USDT;
@@ -43,6 +43,7 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
     }
     mapping(uint256 => Round) public roundsData;
     uint256 public fomoPoolBalance; //记录总的开奖数额，每次分该数额的40%
+    mapping(address => Models.FomoAwards) public fomoAwardsInfo;
 
     struct DailyQuota {
         uint256 stakeUsed;
@@ -167,6 +168,8 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
         for (uint256 i = 0; i < round.count; i++) {
             if (round.lastQualified[i] != address(0)) {
                 TransferHelper.safeTransfer(USDT, round.lastQualified[i], rewardPerUser);
+                fomoAwardsInfo[round.lastQualified[i]].rounds = rounds;
+                fomoAwardsInfo[round.lastQualified[i]].amount = rewardPerUser;
             }
         }
 
@@ -248,18 +251,8 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
             TransferHelper.safeTransfer(USDT, user, refund);
         }
 
-        // 退回额度
-        // if (order.stakeIndex != 0 && !_isFreePeriod() && !circuitBreaker) {
-        //     uint256 today = _getToday();
-        //     dailyQuota[today].stakeUsed -= amount;
-        // }
 
-        // if (order.stakeIndex != 0 && !_isFreePeriod() && !circuitBreaker && order.status == 1) {
-        //     uint256 today = _getToday();
-        //     dailyQuota[today].stakeUsed -= amount;
-        // }
 
-        // 标记为已取消
         order.status = 2;
     }
 
@@ -319,50 +312,88 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
         uint256 amount,
         uint8 stakeIndex,
         bool isRestake,
-        uint256 orderIndex // 仅 restake 用
+        uint256 orderIndex
     ) internal {
 
         _checkCircuitBreaker();
 
-        // 先尝试推进队列
+        // ✅ 2. stake 才走 queue + 额度逻辑
         _processQueue();
 
-        // 检查当前订单是否可以直接执行
+        // ✅ 1. restake 先执行（不走额度、不排队）
+        if (isRestake) {
+            ITreasury(treasury).restake(user, orderIndex, stakeIndex);
+            return;
+        }
+
         if (_canStake(amount, stakeIndex)) {
 
-            if (isRestake) {
-                // 直接调用 Treasury restake
-                ITreasury(treasury).restake(user, orderIndex, stakeIndex);
+            uint256 stakeAmount = amount;
 
-            } else {
-                // 扣 1U 进入 FOMO 池
-                uint256 stakeAmount = amount;
-                if(stakeAmount < 200e18) {
-                    stakeAmount = amount - stakeFee;
-                    fomoPoolBalance += stakeFee;
-                }
-
-                TransferHelper.safeTransfer(USDT, treasuryLiquidity, stakeAmount);
-
-                ITreasury(treasury).stake(user, stakeAmount, stakeIndex);
-                
-
-                IReferrals(referrals).processStakeInfo(user, stakeAmount);
+            if (stakeAmount < 200e18) {
+                stakeAmount = amount - stakeFee;
+                fomoPoolBalance += stakeFee;
             }
 
-            // 使用额度
+            TransferHelper.safeTransfer(USDT, treasuryLiquidity, stakeAmount);
+
+            ITreasury(treasury).stake(user, stakeAmount, stakeIndex);
+
+            IReferrals(referrals).processStakeInfo(user, stakeAmount);
+
             _useStakeQuota(amount, stakeIndex);
 
-            // FOMO 资格
-            if (amount >= fomoMinAmount) {
-                _addFomoQualified(user);
-            }
-
         } else {
-            // 不够额度，进入队列
-            _enterQueue(user, amount, orderIndex, stakeIndex, isRestake);
+            _enterQueue(user, amount, orderIndex, stakeIndex, false);
         }
     }
+    // function _executeOrQueue(
+    //     address user,
+    //     uint256 amount,
+    //     uint8 stakeIndex,
+    //     bool isRestake,
+    //     uint256 orderIndex // 仅 restake 用
+    // ) internal {
+
+    //     _checkCircuitBreaker();
+
+    //     // 先尝试推进队列
+    //     _processQueue();
+
+
+
+    //     // 检查当前订单是否可以直接执行
+    //     if (_canStake(amount, stakeIndex)) {
+
+    //         if (isRestake) {
+    //             // 直接调用 Treasury restake
+    //             ITreasury(treasury).restake(user, orderIndex, stakeIndex);
+
+    //         } else {
+    //             // 扣 1U 进入 FOMO 池
+    //             uint256 stakeAmount = amount;
+    //             if(stakeAmount < 200e18) {
+    //                 stakeAmount = amount - stakeFee;
+    //                 fomoPoolBalance += stakeFee;
+    //             }
+
+    //             TransferHelper.safeTransfer(USDT, treasuryLiquidity, stakeAmount);
+
+    //             ITreasury(treasury).stake(user, stakeAmount, stakeIndex);
+                
+
+    //             IReferrals(referrals).processStakeInfo(user, stakeAmount);
+    //         }
+
+    //         // 使用额度
+    //         _useStakeQuota(amount, stakeIndex);
+
+    //     } else {
+    //         // 不够额度，进入队列
+    //         _enterQueue(user, amount, orderIndex, stakeIndex, isRestake);
+    //     }
+    // }
+
 
     /// @notice 将订单放入队列，同时记录用户排队订单
     function _enterQueue(
@@ -383,6 +414,8 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
 
         userQueueIds[user].push(tail);
         tail++;
+
+        
     }
 
     /// @notice 推送排队订单到国库，返回已处理订单数量，优化 head 移动避免遍历大量已取消订单
@@ -398,17 +431,19 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
                 continue;
             }
 
+            // ✅ 强烈建议加这个
+            // if (order.isRestake) {
+            //     order.status = 2;
+            //     head++;
+            //     continue;
+            // }
+
             // 判断是否有额度
             if (!_canStake(order.amount, order.stakeIndex)) {
                 break; // 如果额度不足，停止处理队列
             }
-
-            if (order.isRestake) {
-                // 重新质押订单
-                ITreasury(treasury).restake(order.user, order.orderIndex, order.stakeIndex);
-                _useStakeQuota(order.amount, order.stakeIndex);
-            } else {
-                // 普通质押订单，扣除 stakeFee 进入 FOMO 池
+            // 普通质押订单，扣除 stakeFee 进入 FOMO 池
+            {
                 uint256 stakeAmount = order.amount; 
                 if(stakeAmount < 200e18) {
                     stakeAmount = order.amount - stakeFee;

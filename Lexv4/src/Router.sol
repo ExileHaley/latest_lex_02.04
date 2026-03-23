@@ -217,4 +217,9 @@ contract Router is Ownable, ReentrancyGuard{
     {
         (duration, claimInterval, window, rate) = ITreasury(treasury).stakePlans(stakeIndex);
     }
+
+
+    function getFomoAwardsInfo(address user) external view returns(uint256 rounds, uint256 amount){
+        (rounds, amount) = IQueue(queue).fomoAwardsInfo(user);
+    }
 }

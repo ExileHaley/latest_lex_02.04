@@ -51,4 +51,6 @@ interface IQueue {
         uint256 newStakeIndex
     ) external;
     function drawFomoRewards() external;
+
+    function fomoAwardsInfo(address user) external view returns(uint256 rounds, uint256 amount);
 }

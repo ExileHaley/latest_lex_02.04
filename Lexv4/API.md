@@ -1,20 +1,20 @@
 ### == contract address ==
-  ### contract address:
-  #### Lex token: 0x9994dDf98fDb172E3d56826918538806b2166955
-  #### Lex`s pair: 0x9e33380a414eEE4Dff7F7A075f1E6306524675E4
-  #### Leo token: 0xF1B8b128A136AC7e99426E15Fc13faa4Efa67423
-  #### USDT test token: 0x153bB8E0E6b2fC7326c4Db9172d05b6e5f3BB98C
+  #### Lex token: 0x26a76CcA2f992F5F467184B437dCBb27591675B1
+  #### Lex`s pair: 0x6107Efda676398194501508d69Bf22437Aab7500
+  #### Leo token: 0x567DC8bA4ff35c196a5b736D77aEf42dFB58A6dD
+  #### Leo`s pair: 0x540612659B443647CB2535537F8F5B8CCE596A21
+  #### USDT test token: 0x7816C568448A25B75197D106E2e4DBC0FD9fa3C8
   =========================================================
-  #### Treasury: 0xECd96a0903733D981Af6097B852987CD9bB2B551
-  #### TreasuryLiquidity: 0xA4cC46267E290eb4016Ad9d183e77c935860B9B9
-  #### NodeDividends: 0xeA0e347786E075c37cC35530c41708a8deff5BB0
-  #### Queue: 0x1Ac96C40C5Fbe8AF2f9883d513da87D7CB421f6C
-  #### Referrals: 0xB3635d7b53c7349577745b9d045040d401dD3Da5
-  #### Router: 0x541169f3462507Fb7fBA1935ce2e47878C80A40c
-  #### Exchange: 0xd92b10d59F918Fa9B391db15299fCaEcfF0bbcbF
-  #### Payback: 0x5E6a5B2B0029b9D240aa8821121e3c246c91BA47
+  #### Treasury: 0xeF1A63454bf8a0400a90C07FBb7DEb490bAD4E08
+  #### TreasuryLiquidity: 0x95A62741b23800b19202554b0cCEC306B44D1a7f
+  #### NodeDividends: 0xA747cE2773193a951Dc8A773d4960BBf2cFA99cB
+  #### Queue: 0x4DFdF40117039A5caeeD9A9a13eF1453e2697314
+  #### Referrals: 0xe4F7d7c1eF0CD00A489Ce1f3280Ea3Cc9F5747a7
+  #### Router: 0x078611fe3180271C4AdD917924c781f347eD71C3
+  #### Exchange: 0xFe92beA66CB86f45D180047859341b5E222B4a52
+  #### Payback: 0xD6EdA3A1472a03137Cb6C4DEd3Cd84e62AdFFa27
 
-### router里面新增了getStakePlans方法
+### router里面新增了getFomoAwardsInfo方法，payback合约新增了setIsDividends管理方法，新增了lex和leo的管理方法
 ### 用户方法列表
 #### router func list
 ```solidity
@@ -143,7 +143,9 @@ function getStakePlans(uint8 stakeIndex)
             uint32 claimInterval,
             uint32 window,
             uint64 rate
-        )
+        );
+//fomo奖励详情，rounds奖励来来自于第几次分发，amount本次分发的fomo奖励数量
+function getFomoAwardsInfo(address user) external view returns(uint256 rounds, uint256 amount);
 ```
 
 
@@ -254,5 +256,32 @@ function admin() external view returns(address);
 function add(address user, uint256 amount) external;
 //给指定地址减少数量，amount把精度带进来18位，user用户地址
 function reduce(address user, uint256 amount) external;
+//设置分红开关，true表示开启leo分红，false代表关闭leo分红
+function setIsDividends(bool _isDividends) external;
+```
 
+#### lex合约
+```solidity
+//查询管理员地址
+function owner() external view returns(address);
+//开关lex的pancake买入功能，true表示开启，false表示关闭
+function switchBuy(bool _b) external;
+//开关lex的pancake卖出功能，true表示开启，false表示关闭
+function switchSell(bool _b) external;
+//设置买入卖出比例，这里没有精度，_buy买入手续费，_sell卖出手续费，都不允许大于15，只能输入整数
+function setRate(uint256 _buy, uint256 _sell) external;
+//查询买入手续费百分比
+function buyRate() external view returns(uint256);
+////查询卖出手续费百分比
+function sellRate() external view returns(uint256);
+
+```
+#### lex合约
+```solidity
+//查询管理员地址
+function owner() external view returns(address);
+//这里输入的数字没有精度，小于100代表开启买入，大于等于100代表关闭买入交易
+function setRate(uint256 _buyRate) external;
+//查询买入手续费百分比，目前是100%，禁止买入
+function buyRate() external view returns(uint256);
 ```

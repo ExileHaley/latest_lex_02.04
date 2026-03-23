@@ -85,4 +85,9 @@ library Models{
         uint256 unstakeCountdown;
         bool isFrozenOld;
     }
+
+    struct FomoAwards{
+        uint256 rounds;
+        uint256 amount;
+    }
 }

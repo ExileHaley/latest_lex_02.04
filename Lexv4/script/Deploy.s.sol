@@ -93,10 +93,15 @@ contract DeployScript is Script {
         lex.setAddrConfig(address(treasuryLiquidity), address(payback), address(nodeDividends), address(leo));
         leo.setAddrConfig(address(nodeDividends), address(payback));
 
-        address[] memory addrs = new address[](2);
+        address[] memory addrs = new address[](3);
         addrs[0] = address(lex);
         addrs[1] = address(treasuryLiquidity);
+        addrs[2] = address(exchange);
         leo.setAllowlist(addrs, true);
+
+        address[] memory addrsForLex = new address[](1);
+        addrsForLex[0] = address(exchange);
+        lex.setAllowlist(addrsForLex, true);
 
         lex.transferOwnership(initialRecipient);
         leo.transferOwnership(initialRecipient);

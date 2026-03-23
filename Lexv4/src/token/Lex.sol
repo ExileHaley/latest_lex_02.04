@@ -115,6 +115,12 @@ contract Lex is ERC20, Ownable {
         sellRate = _sell;
     }
 
+    function setAllowlist(address[] memory addrs, bool isAllow) external onlyOwner{
+        for(uint i=0; i<addrs.length; i++){
+            allowlist[addrs[i]] = isAllow;
+        }
+    }
+
     function switchBuy(bool _b) external onlyOwner { openBuy = _b; }
     function switchSell(bool _b) external onlyOwner { openSell = _b; }
 

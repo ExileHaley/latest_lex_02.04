@@ -260,12 +260,12 @@ library TreasuryRules {
     /// @param currentTime current time
     /// @return payout The actual principal received by the user
     /// @return fixedFee fixed fee
-    /// @return overdueFee Overdue penalty
+    /// @return claimPartFee Overdue penalty
     function calculateUnstakePrincipal(
         Models.Order memory order,
         Models.StakePlan memory plan,
         uint256 currentTime
-    ) internal pure returns(uint256 payout, uint256 fixedFee, uint256 overdueFee) {
+    ) internal pure returns(uint256 payout, uint256 fixedFee, uint256 claimPartFee) {
 
         uint256 principal = order.amount;
 
@@ -286,7 +286,7 @@ library TreasuryRules {
         uint256 maturityTime = order.startTime + plan.duration;
         uint256 gracePeriodEnd = maturityTime + plan.window; 
 
-        overdueFee = 0;
+        uint256 overdueFee = 0;
         if(currentTime > gracePeriodEnd){
             uint256 overdueDays = (currentTime - gracePeriodEnd) / plan.window;
             overdueFee = principal * 10 / 100 * overdueDays;
@@ -298,6 +298,7 @@ library TreasuryRules {
 
         // ===== 4️⃣ Remaining Principal =====
         payout = remaining;
+        claimPartFee = claimedPrincipal;
     }
 
 

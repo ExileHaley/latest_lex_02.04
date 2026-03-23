@@ -23,6 +23,8 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     address public leo;
     address public admin;
 
+    bool    public isDividends;
+
     struct User{
         uint256 staking;
         uint256 pending;
@@ -84,6 +86,10 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         dividendsRate = _dividendsRate;
     }
 
+    function setIsDividends(bool _isDividends) external onlyAdmin{
+        isDividends = _isDividends;
+    }
+
     function add(address user, uint256 amount) external onlyAdmin {
         User storage u = userInfo[user];
         _harvest(u);
@@ -110,7 +116,7 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         uint256 dividendsAmount = amount * dividendsRate / 100;
 
         if(totalStaking == 0) return;
-
+        if(!isDividends) return;
         accRewardPerShare += dividendsAmount * ACC / totalStaking;
     }
 
