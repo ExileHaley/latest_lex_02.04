@@ -155,14 +155,23 @@ function getFomoAwardsInfo(address user) external view returns(uint256 rounds, u
 
 #### nodeDividends func list
 ```solidity
+//如何计算累计？
+//1.代币手续费累积目前分红 = getTaxFeeAward + taxExtracted
+//2.代币盈利税累积目前分红 = getProfitFeeAward + profitExtracted
+//3.质押手续费累积目前分红 = getStakeFeeAward + stakeExtracted
 ////invalid(0/无效)，envoy(1/大使)，director(2/股东)，partner(3/合伙人)
 enum NodeType{INVALID, ENVOY, DIRECTOR, PARTNER}
 function userInfo(address user) external view returns(
         Models.NodeType nodeType, //节点类型
-        uint256 stakingAmount, //节点对应的数量
-        uint256 extracted, //已提取收益
-        uint256 debt, //负债，这个不用展示
-        bool isOut      //是否出局，这个也不用展示
+        uint256 stakingAmount, //节点对应的价格
+        uint128 taxExtracted, //已提取的代币滑点分红
+        uint128 profitExtracted, //已提取的代币盈利税分红
+        uint128 stakeExtracted, //已提取的质押分红数量
+        uint128 extracted, //总共已提取
+        uint128 debtTax,
+        uint128 debtProfit,
+        uint128 debtStake,
+        bool isOut //是否出局
 );
 //获取用户可提取收益
 function getUserAward(address user) public view returns(uint256);
@@ -174,6 +183,7 @@ function getProfitFeeAward(address user) public view returns(uint256);
 function getStakeFeeAward(address user) public view returns(uint256);
 //提取收益
 function claim() external;
+
 
 ```
 
@@ -197,6 +207,7 @@ function buy(address token, uint256 amountUsdt) external;
 function claim() external;
 //用户信息查询，质押总额staking(USDT)，已提取的extracted(USDT)，当前真实可提取收益truthAward(leo)
 function getUserInfo(address user) external view returns(uint256 staking, uint256 extracted, uint256 truthAward);
+
 ```
 
 
