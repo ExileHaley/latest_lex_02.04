@@ -41,6 +41,7 @@ contract NodeDividendsTest is Test{
         deployNodeDividends();
         nodeDividends.setAddrConfig(treasuryLiquidity);
         _add_nodeDividends_test_data();
+        
         vm.stopPrank();
     }
 

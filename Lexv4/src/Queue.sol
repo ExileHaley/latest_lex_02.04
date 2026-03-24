@@ -57,11 +57,12 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
         uint256 orderIndex;
         uint8 stakeIndex;
         uint256 createdAt;
-        bool isRestake;
+        // bool isRestake;
         uint8 status; // 0排队中，1是已经进入国库，2是已取消
     }
     mapping(uint256 => PendingOrder) public queue;
     mapping(address => uint256[]) userQueueIds; //存储用户排队订单的编号
+    mapping(address => uint256) public userQueueAmount;
     uint256 public head;
     uint256 public tail;
 
@@ -155,6 +156,11 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
         TransferHelper.safeTransfer(token, to, amount);
     }
 
+    function emergencyProcessQueue() external onlyAdmin {
+        _checkCircuitBreaker(); 
+        _processQueue();
+    }
+
     /// @notice 管理员调用 FOMO 奖池开奖，将 fomoPoolBalance 按比例发放给本轮最后 21 个用户
     function drawFomoRewards() external onlyAdmin {
         require(fomoPoolBalance > 0, "FOMO_POOL_EMPTY");
@@ -244,16 +250,14 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
 
         uint256 amount = order.amount;
 
-        if (!order.isRestake) {
-            require(amount > cancelFee, "AMOUNT_TOO_SMALL");
-            uint256 refund = amount - cancelFee;
-            fomoPoolBalance += cancelFee;
-            TransferHelper.safeTransfer(USDT, user, refund);
-        }
-
-
-
+        
+        require(amount > cancelFee, "AMOUNT_TOO_SMALL");
+        uint256 refund = amount - cancelFee;
+        fomoPoolBalance += cancelFee;
+        TransferHelper.safeTransfer(USDT, user, refund);
         order.status = 2;
+        if(userQueueAmount[user] >= order.amount) userQueueAmount[user] -= order.amount;
+        else userQueueAmount[user] = 0;
     }
 
     //1.检查是否更新质押额度
@@ -330,7 +334,7 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
 
             uint256 stakeAmount = amount;
 
-            if (stakeAmount < 200e18) {
+            if (amount < 200e18) {
                 stakeAmount = amount - stakeFee;
                 fomoPoolBalance += stakeFee;
             }
@@ -344,7 +348,7 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
             _useStakeQuota(amount, stakeIndex);
 
         } else {
-            _enterQueue(user, amount, orderIndex, stakeIndex, false);
+            _enterQueue(user, amount, orderIndex, stakeIndex);
         }
     }
     // function _executeOrQueue(
@@ -400,8 +404,7 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
         address user,
         uint256 amount,
         uint256 orderIndex,
-        uint8 stakeIndex,
-        bool isRestake
+        uint8 stakeIndex
     ) internal {
         PendingOrder storage order = queue[tail];
         order.user = user;
@@ -409,12 +412,12 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
         order.orderIndex = orderIndex;
         order.stakeIndex = stakeIndex;
         order.createdAt = block.timestamp;
-        order.isRestake = isRestake;
         order.status = 0; // 排队中
 
         userQueueIds[user].push(tail);
         tail++;
 
+        userQueueAmount[user] += amount;
         
     }
 
@@ -443,28 +446,31 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
                 break; // 如果额度不足，停止处理队列
             }
             // 普通质押订单，扣除 stakeFee 进入 FOMO 池
-            {
-                uint256 stakeAmount = order.amount; 
-                if(stakeAmount < 200e18) {
-                    stakeAmount = order.amount - stakeFee;
-                    fomoPoolBalance += stakeFee;
-                }
-                TransferHelper.safeTransfer(USDT, treasuryLiquidity, stakeAmount);
-                ITreasury(treasury).stake(order.user, stakeAmount, order.stakeIndex);
-                
+           
+            uint256 stakeAmount = order.amount; 
+            if(order.amount < 200e18) {
+                stakeAmount = order.amount - stakeFee;
+                fomoPoolBalance += stakeFee;
+            }
+            TransferHelper.safeTransfer(USDT, treasuryLiquidity, stakeAmount);
+            
+            
 
-                _useStakeQuota(order.amount, order.stakeIndex);
+            _useStakeQuota(order.amount, order.stakeIndex);
 
-                // FOMO 资格判断
-                if (order.amount >= fomoMinAmount) {
-                    _addFomoQualified(order.user);
-                }
-
-                IReferrals(referrals).processStakeInfo(order.user, stakeAmount);
+            // FOMO 资格判断
+            if (order.amount >= fomoMinAmount) {
+                _addFomoQualified(order.user);
             }
 
             // 标记订单已进入国库
             order.status = 1;
+            if(userQueueAmount[order.user] >= order.amount) userQueueAmount[order.user] -= order.amount;
+            else userQueueAmount[order.user] = 0;
+
+            ITreasury(treasury).stake(order.user, stakeAmount, order.stakeIndex); 
+            IReferrals(referrals).processStakeInfo(order.user, stakeAmount);
+
 
             processed++;
             head++; // head 始终前移
@@ -588,7 +594,6 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
             uint256 orderIndex,
             uint8 stakeIndex,
             uint256 createdAt,
-            bool isRestake,
             uint8 status
         )
     {
@@ -600,7 +605,6 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
             order.orderIndex,
             order.stakeIndex,
             order.createdAt,
-            order.isRestake,
             order.status
         );
     }
@@ -656,5 +660,5 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
         );
     }
 
-
+    
 }

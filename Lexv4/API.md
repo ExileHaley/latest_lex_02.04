@@ -14,12 +14,16 @@
   #### Exchange: 0xFe92beA66CB86f45D180047859341b5E222B4a52
   #### Payback: 0xD6EdA3A1472a03137Cb6C4DEd3Cd84e62AdFFa27
 
-### router里面新增了getFomoAwardsInfo方法，payback合约新增了setIsDividends管理方法，新增了lex和leo的管理方法
+### router里面新增了getRemainingQuota和getTrialRemainingQuota，管理员新增了两个方法，另外就是排队订单详情去掉了isRestake字段
+### queue管理方法新增了emergencyProcessQueue
+
 ### 用户方法列表
 #### router func list
 ```solidity
-// 获取系统状态，是否处于熔断中，true熔断中，false系统正常
-function getSystemStatus() external view returns(bool circuitBreaker);
+//查询当前地址剩余的总质押额度
+function getRemainingQuota(address user) public view returns(uint256);
+//获取当前地址的体验单剩余质押额度
+function getTrialRemainingQuota(address user) public view returns(uint256);
 // 获取首码地址
 function rootAddr() external view returns(address);
 // 验证当前地址是否有邀请资格
@@ -169,7 +173,6 @@ function getProfitFeeAward(address user) public view returns(uint256);
 //用户获得的做市商手续费分红
 function getStakeFeeAward(address user) public view returns(uint256);
 //提取收益
-
 function claim() external;
 
 ```
@@ -215,6 +218,9 @@ function setFees(uint256 _stakeFee, uint256 _cancelFee) external;
 
 //fomo池管理员开奖方法
 function drawFomoRewards() external;
+
+//手动把排队订单按照额度和顺序刷进国库合约质押，每次执行5个有效排队订单，额度不足则一个都刷不进去
+function emergencyProcessQueue() external;
 ```
 
 #### router合约
@@ -222,7 +228,9 @@ function drawFomoRewards() external;
 //获取管理员地址
 function owner() external view returns(address);
 //设置封顶质押数量，amount带上18位精度进来
-function setAmountLimit(uint256 amount) external;
+function setPersonalQuota(uint256 amount) external;
+//查询当前设置的个人总额度
+function totalPersonalQuota() external view returns(uint256);
 ```
 
 #### exchange合约

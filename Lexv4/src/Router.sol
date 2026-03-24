@@ -15,13 +15,14 @@ import {TreasuryRules} from "./libraries/TreasuryRules.sol";
 contract Router is Ownable, ReentrancyGuard{
     address public USDT;
     uint256 public constant MIN_STAKE_AMOUNT = 2 ether;
+    uint256 public constant MAXTRIALQUOTA = 100 ether;
     address public treasury;
     address public queue;
     address public referrals;
-    mapping(uint256 => uint256) public maxValueOfStakeIndex;
-    mapping(address => bool) public alreadyExistsUser;
 
-    uint256 public stakingAmountLimit;
+    mapping(address => uint256) public trialAlreadyUsed;
+
+    uint256 public totalPersonalQuota;
 
     constructor(
         address _treasury, 
@@ -33,8 +34,7 @@ contract Router is Ownable, ReentrancyGuard{
         queue = _queue;
         referrals = _referrals;
         USDT = _USDT;
-        maxValueOfStakeIndex[0] = 100e18;
-        stakingAmountLimit = 10000e18;
+        totalPersonalQuota = 10000e18;
     }
 
     function setConfig(
@@ -47,9 +47,9 @@ contract Router is Ownable, ReentrancyGuard{
         referrals = _referrals;
     }
 
-    function setAmountLimit(uint256 amount) external onlyOwner{
+    function setPersonalQuota(uint256 amount) external onlyOwner{
         require(amount >= 100e18, "ERROR_AMOUNT_LIMIT.");
-        stakingAmountLimit = amount;
+        totalPersonalQuota = amount;
     }
 
     function referral(address parent) external nonReentrant{
@@ -60,15 +60,15 @@ contract Router is Ownable, ReentrancyGuard{
 
 
     function stake(uint256 amount, uint8 stakeIndex) external nonReentrant{
-        require(stakingAmountLimit >= amount, "ERROR_STAKING_AMOUNT.");
+        require(amount >= MIN_STAKE_AMOUNT, "AMOUNT_TOO_SMALL");
+        require(getRemainingQuota(msg.sender) >= amount, "ERROR_STAKING_AMOUNT.");
         require(stakeIndex < 4, "ERROR_STAKE_INDEX.");
-        uint256 maxLimit = maxValueOfStakeIndex[stakeIndex];
-        if(maxLimit > 0) require(maxLimit >= amount, "ERROR_AMOUNT.");
 
         if(stakeIndex == 0) {
-            require(!alreadyExistsUser[msg.sender], "DISALLOWED_ORDER_TYPE.");
-            alreadyExistsUser[msg.sender] = true;
+            require(getTrialRemainingQuota(msg.sender) >= amount, "ERROR_STAKE_AMOUNT_FOR_TRIAL.");
+            trialAlreadyUsed[msg.sender] += amount;
         }
+
         TransferHelper.safeTransferFrom(USDT, msg.sender, queue, amount);
         IQueue(queue).stake(msg.sender, amount, stakeIndex);
     }
@@ -107,11 +107,10 @@ contract Router is Ownable, ReentrancyGuard{
             uint256 orderIndex,
             uint8 stakeIndex,
             uint256 createdAt,
-            bool isRestake,
             uint8 status
         )
     {
-        (user, amount, orderIndex, stakeIndex, createdAt, isRestake, status) = 
+        (user, amount, orderIndex, stakeIndex, createdAt, status) = 
             IQueue(queue).getPendingOrder(queueId);
     }
 
@@ -222,4 +221,26 @@ contract Router is Ownable, ReentrancyGuard{
     function getFomoAwardsInfo(address user) external view returns(uint256 rounds, uint256 amount){
         (rounds, amount) = IQueue(queue).fomoAwardsInfo(user);
     }
+
+    function getRemainingQuota(address user) public view returns(uint256){
+        (,,,uint256 totalStaked,) = IReferrals(referrals).referralInfo(user);
+        uint256 totalQueue = IQueue(queue).userQueueAmount(user);
+
+        uint256 used = totalQueue + totalStaked;
+
+        if (used >= totalPersonalQuota) {
+            return 0;
+        }
+
+        return totalPersonalQuota - used;
+    }
+
+    function getTrialRemainingQuota(address user) public view returns(uint256){
+        uint256 used = trialAlreadyUsed[user];
+        if (used >= MAXTRIALQUOTA) {
+            return 0;
+        }
+        return MAXTRIALQUOTA - used;
+    }
+
 }

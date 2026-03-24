@@ -12,7 +12,6 @@ interface IQueue {
             uint256 orderIndex,
             uint8 stakeIndex,
             uint256 createdAt,
-            bool isRestake,
             uint8 status
         );
 
@@ -53,4 +52,5 @@ interface IQueue {
     function drawFomoRewards() external;
 
     function fomoAwardsInfo(address user) external view returns(uint256 rounds, uint256 amount);
+    function userQueueAmount(address user) external view returns(uint256);
 }
