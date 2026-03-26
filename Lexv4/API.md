@@ -2,6 +2,7 @@
   #### Lex token: 0x1b64bB8eFfcA42CeE0FDf02FC464c8c76eCd0FC6
   #### Lex`s pair: 0x81fF1F0e9504c39F37531d8954eEd7C939B847F8
   #### Leo token: 0x210df925199eeC93952A3037CadEa4dBA96A6DbA
+  #### Leo`s pair: 0xE7D301a9b4c6c7506379c86851f5e2ee0E863a00
   #### USDT test token: 0xCe90d1c87c967d677467cBAf5fA508860BF99023
   =========================================================
   #### Treasury: 0xFeAA92C89Edb0c42523488Bd71CC10CEFA6fdbbf
