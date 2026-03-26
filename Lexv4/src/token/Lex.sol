@@ -248,12 +248,13 @@ contract Lex is ERC20, Ownable {
                 super._update(from, address(this), profitTax);
                 _distributeProfit(profitTax);
             }
-
             super._update(from, address(this), sellFee);
-            super._update(from, to, sellAmount - profitTax);
 
-            _reduceCost(from, amount);
             _processFee();
+
+            super._update(from, to, sellAmount - profitTax);
+            _reduceCost(from, amount);
+            
 
             return;
         }

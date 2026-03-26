@@ -35,6 +35,7 @@ contract NodeDividends is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     mapping(address => User) public userInfo;
 
     address public lex;
+    address public leo;
     address public treasuryLiquidity;
     address public admin;
     address public USDT;
@@ -50,19 +51,21 @@ contract NodeDividends is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     function initialize(
         address _lex,
+        address _leo,
         address _nodeDividendsV1,
         address _admin,
         address _USDT
     ) public initializer {
         __Ownable_init(_msgSender());
         lex = _lex;
+        leo = _leo;
         nodeDividendsV1 = _nodeDividendsV1;
         admin = _admin;
         USDT = _USDT;
     }
 
     modifier onlyFarm() {
-        require(msg.sender == lex || msg.sender == treasuryLiquidity, "NOT_PERMIT");
+        require(msg.sender == lex || msg.sender == treasuryLiquidity || msg.sender == leo, "NOT_PERMIT");
         _;
     }
 

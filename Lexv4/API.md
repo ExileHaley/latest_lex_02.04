@@ -1,18 +1,17 @@
 ### == contract address ==
-  #### Lex token: 0x26a76CcA2f992F5F467184B437dCBb27591675B1
-  #### Lex`s pair: 0x6107Efda676398194501508d69Bf22437Aab7500
-  #### Leo token: 0x567DC8bA4ff35c196a5b736D77aEf42dFB58A6dD
-  #### Leo`s pair: 0x540612659B443647CB2535537F8F5B8CCE596A21
-  #### USDT test token: 0x7816C568448A25B75197D106E2e4DBC0FD9fa3C8
+  #### Lex token: 0x1b64bB8eFfcA42CeE0FDf02FC464c8c76eCd0FC6
+  #### Lex`s pair: 0x81fF1F0e9504c39F37531d8954eEd7C939B847F8
+  #### Leo token: 0x210df925199eeC93952A3037CadEa4dBA96A6DbA
+  #### USDT test token: 0xCe90d1c87c967d677467cBAf5fA508860BF99023
   =========================================================
-  #### Treasury: 0xeF1A63454bf8a0400a90C07FBb7DEb490bAD4E08
-  #### TreasuryLiquidity: 0x95A62741b23800b19202554b0cCEC306B44D1a7f
-  #### NodeDividends: 0xA747cE2773193a951Dc8A773d4960BBf2cFA99cB
-  #### Queue: 0x4DFdF40117039A5caeeD9A9a13eF1453e2697314
-  #### Referrals: 0xe4F7d7c1eF0CD00A489Ce1f3280Ea3Cc9F5747a7
-  #### Router: 0x078611fe3180271C4AdD917924c781f347eD71C3
-  #### Exchange: 0xFe92beA66CB86f45D180047859341b5E222B4a52
-  #### Payback: 0xD6EdA3A1472a03137Cb6C4DEd3Cd84e62AdFFa27
+  #### Treasury: 0xFeAA92C89Edb0c42523488Bd71CC10CEFA6fdbbf
+  #### TreasuryLiquidity: 0xeC9ced01e6F8A2Fc1D97cb6BD27FF58814858d7a
+  #### NodeDividends: 0x73b62E8a27E2f109c425e0059C59606ef10d02A3
+  #### Queue: 0xC43F6e2870aB97711e0795C6788575Fe3ef99292
+  #### Referrals: 0x9Ed8B7505CaD63de839Ea8C4BA3d675d8C90CFBD
+  #### Router: 0x4B69a31A7De1fc9b2f5Bb8C056d5838946f1f070
+  #### Exchange: 0xE9b7c269C38F7DBCbA9ac480DaF1e34Dd83629C3
+  #### Payback: 0x85D100C07E1fE4a5cF4d78544A8D98122535EaE2
 
 ### router里面新增了getRemainingQuota和getTrialRemainingQuota，管理员新增了两个方法，另外就是排队订单详情去掉了isRestake字段
 ### queue管理方法新增了emergencyProcessQueue

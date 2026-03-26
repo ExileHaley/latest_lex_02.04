@@ -41,7 +41,7 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     uint256[50] private __gap;
     
     modifier onlyFarm() {
-        require(msg.sender == treasuryLiquidity || msg.sender == lex, "Not permit.");
+        require(msg.sender == treasuryLiquidity || msg.sender == leo || lex == msg.sender, "Not permit.");
         _;
     }
 

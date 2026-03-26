@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Test,console} from "forge-std/Test.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+// import {Test,console} from "forge-std/Test.sol";
+// import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 // //导入要使用的接口
 // import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 // import { IUniswapV2Pair } from "../src/interfaces/IUniswapV2Pair.sol";
@@ -14,7 +14,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 // import {TreasuryLiquidity} from "../src/TreasuryLiquidity.sol";
 // import {NodeDividends} from "../src/NodeDividends.sol";
 // import {Payback} from "../src/Payback.sol";
-import {Queue} from "../src/Queue.sol";
+// import {Queue} from "../src/Queue.sol";
 // import {Referrals} from "../src/Referrals.sol";
 // import {Router} from "../src/Router.sol";
 // //导入要部署的代币
@@ -22,22 +22,22 @@ import {Queue} from "../src/Queue.sol";
 // import {Leo} from "../src/token/Leo.sol";
 // import {Tether} from "../src/mock/Tether.sol";
 
-contract QueueTest is Test{
-    Queue public queue;
+// contract QueueTest is Test{
+//     Queue public queue;
 
-    address public admin;
-    uint256 mainnetFork;
+//     address public admin;
+//     uint256 mainnetFork;
 
-    function setUp() public {
-        mainnetFork = vm.createFork(vm.envString("rpc_url"));
-        vm.selectFork(mainnetFork);
-        queue = Queue(payable(0x4DFdF40117039A5caeeD9A9a13eF1453e2697314));
-        admin = queue.admin();
-    }
+//     function setUp() public {
+//         mainnetFork = vm.createFork(vm.envString("rpc_url"));
+//         vm.selectFork(mainnetFork);
+//         queue = Queue(payable(0x4DFdF40117039A5caeeD9A9a13eF1453e2697314));
+//         admin = queue.admin();
+//     }
 
-    function test_fomo() public {
-        vm.startPrank(admin);
-        queue.drawFomoRewards();
-        vm.stopPrank();
-    }
-}
+//     function test_fomo() public {
+//         vm.startPrank(admin);
+//         queue.drawFomoRewards();
+//         vm.stopPrank();
+//     }
+// }

@@ -152,7 +152,7 @@ contract DeployScript is Script {
         NodeDividends nodeDividendsImpl = new NodeDividends();
         ERC1967Proxy nodeDividendsProxy = new ERC1967Proxy(
             address(nodeDividendsImpl),
-            abi.encodeCall(nodeDividendsImpl.initialize,(address(lex), nodeV1, universalAdmin, address(USDT)))
+            abi.encodeCall(nodeDividendsImpl.initialize,(address(leo), address(lex), nodeV1, universalAdmin, address(USDT)))
         );
         nodeDividends = NodeDividends(payable(address(nodeDividendsProxy)));
     }
