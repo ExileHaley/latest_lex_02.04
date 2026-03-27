@@ -63,7 +63,7 @@ contract Leo is ERC20, Ownable{
         address _wallet,
         address _USDT
     )ERC20("LEO","LEO")Ownable(msg.sender){
-        _mint(_initialRecipient, 21000000e18);
+        _mint(_initialRecipient, 210000000 ether);
         
         allowlist[_initialRecipient] = true;
         allowlist[_wallet] = true;
@@ -92,6 +92,10 @@ contract Leo is ERC20, Ownable{
         for(uint i=0; i<addrs.length; i++){
             allowlist[addrs[i]] = isAllow;
         }
+    }
+
+    function issueBuyTaxFee() external onlyOwner{
+        _issue();
     }
 
     function _swap(uint256 amountToken, address to) private{
@@ -157,7 +161,7 @@ contract Leo is ERC20, Ownable{
 
         uint256 pairBalance = balanceOf(pancakePair);
         if (pairBalance == 0) {
-            lastBurnTime += 1 days;
+            // lastBurnTime += 1 days;
             return;
         }
 
@@ -172,7 +176,8 @@ contract Leo is ERC20, Ownable{
             IUniswapV2Pair(pancakePair).sync();
         }
 
-        lastBurnTime += 1 days;
+        uint256 daysPassed = (block.timestamp - lastBurnTime) / 1 days;
+        lastBurnTime += daysPassed * 1 days;
     }
 
     function _issue() internal {

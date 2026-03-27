@@ -1,387 +1,387 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Test,console} from "forge-std/Test.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-//导入要使用的接口
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IUniswapV2Pair } from "../src/interfaces/IUniswapV2Pair.sol";
-import {IUniswapV2Router02} from "../src/interfaces/IUniswapV2Router02.sol";
-//导入要使用的数据结构
-import {Models} from "../src/libraries/Models.sol";
-//导入要部署的合约
-import {Treasury} from "../src/Treasury.sol";
-import {TreasuryLiquidity} from "../src/TreasuryLiquidity.sol";
-import {NodeDividends} from "../src/NodeDividends.sol";
-import {Payback} from "../src/Payback.sol";
-import {Queue} from "../src/Queue.sol";
-import {Referrals} from "../src/Referrals.sol";
-import {Router} from "../src/Router.sol";
-//导入要部署的代币
-import {Lex} from "../src/token/Lex.sol";
-import {Leo} from "../src/token/Leo.sol";
-import {Tether} from "../src/mock/Tether.sol";
+// import {Test,console} from "forge-std/Test.sol";
+// import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+// //导入要使用的接口
+// import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+// import { IUniswapV2Pair } from "../src/interfaces/IUniswapV2Pair.sol";
+// import {IUniswapV2Router02} from "../src/interfaces/IUniswapV2Router02.sol";
+// //导入要使用的数据结构
+// import {Models} from "../src/libraries/Models.sol";
+// //导入要部署的合约
+// import {Treasury} from "../src/Treasury.sol";
+// import {TreasuryLiquidity} from "../src/TreasuryLiquidity.sol";
+// import {NodeDividends} from "../src/NodeDividends.sol";
+// import {Payback} from "../src/Payback.sol";
+// import {Queue} from "../src/Queue.sol";
+// import {Referrals} from "../src/Referrals.sol";
+// import {Router} from "../src/Router.sol";
+// //导入要部署的代币
+// import {Lex} from "../src/token/Lex.sol";
+// import {Leo} from "../src/token/Leo.sol";
+// import {Tether} from "../src/mock/Tether.sol";
 
 
-contract RouterTest is Test{
-    //部署代币合约
-    Lex public lex;
-    Leo public leo;
-    Tether public USDT;
-    //部署质押合约
-    Treasury public treasury;
-    TreasuryLiquidity public treasuryLiquidity;
-    NodeDividends public nodeDividends;
-    Payback public payback;
-    Queue public queue;
-    Referrals public referrals;
-    Router public router;
+// contract RouterTest is Test{
+//     //部署代币合约
+//     Lex public lex;
+//     Leo public leo;
+//     Tether public USDT;
+//     //部署质押合约
+//     Treasury public treasury;
+//     TreasuryLiquidity public treasuryLiquidity;
+//     NodeDividends public nodeDividends;
+//     Payback public payback;
+//     Queue public queue;
+//     Referrals public referrals;
+//     Router public router;
 
-    //创建地址
-    address owner;
-    address admin;
-    address user;
-    address initialRecipient;
-    address unstakeWallet;
-    address remainingWallet;
-    address claimWallet;
-    address lexWallet;
-    address leoWallet;
+//     //创建地址
+//     address owner;
+//     address admin;
+//     address user;
+//     address initialRecipient;
+//     address unstakeWallet;
+//     address remainingWallet;
+//     address claimWallet;
+//     address lexWallet;
+//     address leoWallet;
     
-    //实际地址
-    address nodeDividendsV1;
-    address rootAddr;
-    address uniswapV2Router;
-    address node_test_user0;
-    address node_test_user1;
+//     //实际地址
+//     address nodeDividendsV1;
+//     address rootAddr;
+//     address uniswapV2Router;
+//     address node_test_user0;
+//     address node_test_user1;
 
-    uint256 mainnetFork;
+//     uint256 mainnetFork;
     
-    function setUp() public {
-        mainnetFork = vm.createFork(vm.envString("rpc_url"));
-        vm.selectFork(mainnetFork);
+//     function setUp() public {
+//         mainnetFork = vm.createFork(vm.envString("rpc_url"));
+//         vm.selectFork(mainnetFork);
 
-        uniswapV2Router = address(0x10ED43C718714eb63d5aA57B78B54704E256024E);
-        nodeDividendsV1 = address(0x285Ca769Ab57CBB623513921C9a9B3a8fd8F936A);
-        rootAddr = address(0x19Cf31C1DA6b2c8cD9fD0b8AA4466433196BDBe6);
-        node_test_user0 = address(0x3001Ebb8f90160d76ce570E4bE73ce31EC10F839);
-        node_test_user1 = address(0xB74EC8C4Daf19fa2Cd32c77b7aE1aC614B71E2Ee);
+//         uniswapV2Router = address(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+//         nodeDividendsV1 = address(0x285Ca769Ab57CBB623513921C9a9B3a8fd8F936A);
+//         rootAddr = address(0x19Cf31C1DA6b2c8cD9fD0b8AA4466433196BDBe6);
+//         node_test_user0 = address(0x3001Ebb8f90160d76ce570E4bE73ce31EC10F839);
+//         node_test_user1 = address(0xB74EC8C4Daf19fa2Cd32c77b7aE1aC614B71E2Ee);
 
-        owner = address(1);
-        admin = address(2);
-        user = address(3);
-        initialRecipient = address(4);
-        unstakeWallet = address(5);
-        remainingWallet = address(6);
-        claimWallet = address(7);
-        lexWallet = address(8);
-        leoWallet = address(9);
+//         owner = address(1);
+//         admin = address(2);
+//         user = address(3);
+//         initialRecipient = address(4);
+//         unstakeWallet = address(5);
+//         remainingWallet = address(6);
+//         claimWallet = address(7);
+//         lexWallet = address(8);
+//         leoWallet = address(9);
 
-        vm.startPrank(owner);
-        USDT = new Tether(initialRecipient);
-        lex = new Lex(initialRecipient, lexWallet, address(USDT));
-        leo = new Leo(initialRecipient, leoWallet, address(USDT));
+//         vm.startPrank(owner);
+//         USDT = new Tether(initialRecipient);
+//         lex = new Lex(initialRecipient, lexWallet, address(USDT));
+//         leo = new Leo(initialRecipient, leoWallet, address(USDT));
 
-        deployTreasury();
-        deployNodeDividends();
-        deployReferrals();
-        deployTreasuryLiquidity();
-        deployQueue();
-        deployPayback();
-        deployRouetr();
+//         deployTreasury();
+//         deployNodeDividends();
+//         deployReferrals();
+//         deployTreasuryLiquidity();
+//         deployQueue();
+//         deployPayback();
+//         deployRouetr();
 
-        treasury.setAddrConfig(address(queue), address(treasuryLiquidity));
-        referrals.setAddrConfig(address(queue), address(router));
-        queue.setAddrConfig(address(router));
-        nodeDividends.setAddrConfig(address(treasuryLiquidity));
-        treasuryLiquidity.setPaybackAddr(address(payback));
+//         treasury.setAddrConfig(address(queue), address(treasuryLiquidity));
+//         referrals.setAddrConfig(address(queue), address(router));
+//         queue.setAddrConfig(address(router));
+//         nodeDividends.setAddrConfig(address(treasuryLiquidity));
+//         treasuryLiquidity.setPaybackAddr(address(payback));
 
-        lex.setAddrConfig(address(treasuryLiquidity), address(payback), address(nodeDividends), address(leo));
-        leo.setAddrConfig(address(nodeDividends), address(payback));
+//         lex.setAddrConfig(address(treasuryLiquidity), address(payback), address(nodeDividends), address(leo));
+//         leo.setAddrConfig(address(nodeDividends), address(payback));
 
 
-        address[] memory addrs = new address[](2);
-        addrs[0] = address(lex);
-        addrs[1] = address(treasuryLiquidity);
-        leo.setAllowlist(addrs, true);
+//         address[] memory addrs = new address[](2);
+//         addrs[0] = address(lex);
+//         addrs[1] = address(treasuryLiquidity);
+//         leo.setAllowlist(addrs, true);
 
-        // payback.setIsDividends(true);
-        vm.stopPrank();
-        _addLiquidity(address(lex));
-        _addLiquidity(address(leo));
-        _transfer_utils(address(lex), initialRecipient, address(treasuryLiquidity), 500000e18);
-        _add_nodeDividends_test_data();
-        _add_payback_test_data();
-    }
+//         // payback.setIsDividends(true);
+//         vm.stopPrank();
+//         _addLiquidity(address(lex));
+//         _addLiquidity(address(leo));
+//         _transfer_utils(address(lex), initialRecipient, address(treasuryLiquidity), 500000e18);
+//         _add_nodeDividends_test_data();
+//         _add_payback_test_data();
+//     }
 
-    function deployTreasury() internal{
-        // initialize(address unstakeWallet) 
-        // setAddrConfig(
-        //     address _queue,
-        //     address _treasuryLiquidity
-        // ) 
-        Treasury treasuryImpl = new Treasury();
-        ERC1967Proxy treasuryProxy = new ERC1967Proxy(
-            address(treasuryImpl),
-            abi.encodeCall(treasuryImpl.initialize,(unstakeWallet))
-        );
-        treasury = Treasury(payable(address(treasuryProxy)));
-    } 
+//     function deployTreasury() internal{
+//         // initialize(address unstakeWallet) 
+//         // setAddrConfig(
+//         //     address _queue,
+//         //     address _treasuryLiquidity
+//         // ) 
+//         Treasury treasuryImpl = new Treasury();
+//         ERC1967Proxy treasuryProxy = new ERC1967Proxy(
+//             address(treasuryImpl),
+//             abi.encodeCall(treasuryImpl.initialize,(unstakeWallet))
+//         );
+//         treasury = Treasury(payable(address(treasuryProxy)));
+//     } 
 
-    function deployNodeDividends() internal{
-        // initialize(
-        //     address _lex,
-        //     address _nodeDividendsV1,
-        //     address _admin,
-        //     address _USDT,
-        // ) 
-        // setAddrConfig(address _treasuryLiquidity)
-        NodeDividends nodeDividendsImpl = new NodeDividends();
-        ERC1967Proxy nodeDividendsProxy = new ERC1967Proxy(
-            address(nodeDividendsImpl),
-            abi.encodeCall(nodeDividendsImpl.initialize,(address(leo), address(lex), nodeDividendsV1, admin, address(USDT)))
-        );
-        nodeDividends = NodeDividends(payable(address(nodeDividendsProxy)));
-    }
+//     function deployNodeDividends() internal{
+//         // initialize(
+//         //     address _lex,
+//         //     address _nodeDividendsV1,
+//         //     address _admin,
+//         //     address _USDT,
+//         // ) 
+//         // setAddrConfig(address _treasuryLiquidity)
+//         NodeDividends nodeDividendsImpl = new NodeDividends();
+//         ERC1967Proxy nodeDividendsProxy = new ERC1967Proxy(
+//             address(nodeDividendsImpl),
+//             abi.encodeCall(nodeDividendsImpl.initialize,(address(leo), address(lex), nodeDividendsV1, admin, address(USDT)))
+//         );
+//         nodeDividends = NodeDividends(payable(address(nodeDividendsProxy)));
+//     }
 
-    function deployReferrals() internal{
-        // initialize(
-        //     address _rootAddr,
-        //     address _lexv1
-        // )
-        // setAddrConfig(address _queue, address _router)
-        Referrals referralsImpl = new Referrals();
-        ERC1967Proxy referralsProxy = new ERC1967Proxy(
-            address(referralsImpl),
-            abi.encodeCall(referralsImpl.initialize,(rootAddr, nodeDividendsV1))
-        );
-        referrals = Referrals(payable(address(referralsProxy)));
-    }
+//     function deployReferrals() internal{
+//         // initialize(
+//         //     address _rootAddr,
+//         //     address _lexv1
+//         // )
+//         // setAddrConfig(address _queue, address _router)
+//         Referrals referralsImpl = new Referrals();
+//         ERC1967Proxy referralsProxy = new ERC1967Proxy(
+//             address(referralsImpl),
+//             abi.encodeCall(referralsImpl.initialize,(rootAddr, nodeDividendsV1))
+//         );
+//         referrals = Referrals(payable(address(referralsProxy)));
+//     }
 
-    function deployTreasuryLiquidity() internal{
-        // initialize(
-            // address _admin,
-            // address _treasury,
-            // address _token,
-            // address _usdt,
-            // address _leo,
-            // address _referrals,
-            // address _nodeDividends,
-            // address _remainingWallet,
-            // address _claimWallet
-        // ) 
-        TreasuryLiquidity impl = new TreasuryLiquidity();
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(impl.initialize,(
-                admin,
-                address(treasury),
-                address(lex),
-                address(USDT),
-                address(leo),
-                address(referrals),
-                address(nodeDividends),
-                // address(payback),
-                address(remainingWallet),
-                address(claimWallet)
-            ))
-        );
-        treasuryLiquidity = TreasuryLiquidity(payable(address(proxy)));
-    }
+//     function deployTreasuryLiquidity() internal{
+//         // initialize(
+//             // address _admin,
+//             // address _treasury,
+//             // address _token,
+//             // address _usdt,
+//             // address _leo,
+//             // address _referrals,
+//             // address _nodeDividends,
+//             // address _remainingWallet,
+//             // address _claimWallet
+//         // ) 
+//         TreasuryLiquidity impl = new TreasuryLiquidity();
+//         ERC1967Proxy proxy = new ERC1967Proxy(
+//             address(impl),
+//             abi.encodeCall(impl.initialize,(
+//                 admin,
+//                 address(treasury),
+//                 address(lex),
+//                 address(USDT),
+//                 address(leo),
+//                 address(referrals),
+//                 address(nodeDividends),
+//                 // address(payback),
+//                 address(remainingWallet),
+//                 address(claimWallet)
+//             ))
+//         );
+//         treasuryLiquidity = TreasuryLiquidity(payable(address(proxy)));
+//     }
 
-    function deployQueue() internal{
-        // initialize(
-        // address _admin,
-        // address _lex,
-        // address _pair,
-        // address _USDT,
-        // address _treasury, 
-        // address _treasuryLiquidity,
-        // address _referrals
-        // )
-        // setAddrConfig(
-        //     address _router
-        // ) 
-        Queue queueImpl = new Queue();
-        ERC1967Proxy queueProxy = new ERC1967Proxy(
-            address(queueImpl),
-            abi.encodeCall(queueImpl.initialize,(
-                admin, 
-                address(lex), 
-                lex.pancakePair(), 
-                address(USDT),
-                address(treasury),
-                address(treasuryLiquidity),
-                address(referrals)
-            ))
-        );
-        queue = Queue(payable(address(queueProxy)));
-    }
+//     function deployQueue() internal{
+//         // initialize(
+//         // address _admin,
+//         // address _lex,
+//         // address _pair,
+//         // address _USDT,
+//         // address _treasury, 
+//         // address _treasuryLiquidity,
+//         // address _referrals
+//         // )
+//         // setAddrConfig(
+//         //     address _router
+//         // ) 
+//         Queue queueImpl = new Queue();
+//         ERC1967Proxy queueProxy = new ERC1967Proxy(
+//             address(queueImpl),
+//             abi.encodeCall(queueImpl.initialize,(
+//                 admin, 
+//                 address(lex), 
+//                 lex.pancakePair(), 
+//                 address(USDT),
+//                 address(treasury),
+//                 address(treasuryLiquidity),
+//                 address(referrals)
+//             ))
+//         );
+//         queue = Queue(payable(address(queueProxy)));
+//     }
 
-    function deployPayback() internal{
-        // initialize(
-        //     address _USDT,
-        //     address _treasuryLiquidity,
-        //     address _lex,
-        //     address _leo,
-        //     address _admin
-        // ) 
-        Payback impl = new Payback();
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(impl.initialize,(address(USDT), address(treasuryLiquidity), address(lex), address(leo), admin))
-        );
-        payback = Payback(payable(address(proxy)));
-    }
+//     function deployPayback() internal{
+//         // initialize(
+//         //     address _USDT,
+//         //     address _treasuryLiquidity,
+//         //     address _lex,
+//         //     address _leo,
+//         //     address _admin
+//         // ) 
+//         Payback impl = new Payback();
+//         ERC1967Proxy proxy = new ERC1967Proxy(
+//             address(impl),
+//             abi.encodeCall(impl.initialize,(address(USDT), address(treasuryLiquidity), address(lex), address(leo), admin))
+//         );
+//         payback = Payback(payable(address(proxy)));
+//     }
 
-    function deployRouetr() internal{
-        // (
-        //     address _treasury, 
-        //     address _queue, 
-        //     address _referrals,
-        //     address _USDT
-        // )
-        router = new Router(address(treasury), address(queue), address(referrals), address(USDT));
-    }
+//     function deployRouetr() internal{
+//         // (
+//         //     address _treasury, 
+//         //     address _queue, 
+//         //     address _referrals,
+//         //     address _USDT
+//         // )
+//         router = new Router(address(treasury), address(queue), address(referrals), address(USDT));
+//     }
 
     
-    ////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////
-    function _add_payback_test_data() internal{
-        vm.startPrank(admin);
-        payback.add(node_test_user0, 100e18);
-        payback.add(node_test_user1, 100e18);
-        vm.stopPrank();
-    }
+//     ////////////////////////////////////////////////////////////////////////////////
+//     ////////////////////////////////////////////////////////////////////////////////
+//     ////////////////////////////////////////////////////////////////////////////////
+//     ////////////////////////////////////////////////////////////////////////////////
+//     function _add_payback_test_data() internal{
+//         vm.startPrank(admin);
+//         payback.add(node_test_user0, 100e18);
+//         payback.add(node_test_user1, 100e18);
+//         vm.stopPrank();
+//     }
 
-    function _add_nodeDividends_test_data() internal{
-        vm.startPrank(owner);
-        address[] memory addrs = new address[](2);
-        addrs[0] = node_test_user0;
-        addrs[1] = node_test_user1;
-        nodeDividends.batchAdd(addrs);
-        vm.stopPrank();
-    }
+//     function _add_nodeDividends_test_data() internal{
+//         vm.startPrank(owner);
+//         address[] memory addrs = new address[](2);
+//         addrs[0] = node_test_user0;
+//         addrs[1] = node_test_user1;
+//         nodeDividends.batchAdd(addrs);
+//         vm.stopPrank();
+//     }
 
-    function _addLiquidity(address token) internal {
-        vm.startPrank(initialRecipient);
-        USDT.approve(uniswapV2Router, 10000e18);
-        IERC20(token).approve(uniswapV2Router, 10000e18);
+//     function _addLiquidity(address token) internal {
+//         vm.startPrank(initialRecipient);
+//         USDT.approve(uniswapV2Router, 10000e18);
+//         IERC20(token).approve(uniswapV2Router, 10000e18);
 
-        IUniswapV2Router02(uniswapV2Router).addLiquidity(
-            address(USDT), 
-            token, 
-            10000e18, 
-            10000e18, 
-            0, 
-            0, 
-            initialRecipient, 
-            block.timestamp + 30
-        );
+//         IUniswapV2Router02(uniswapV2Router).addLiquidity(
+//             address(USDT), 
+//             token, 
+//             10000e18, 
+//             10000e18, 
+//             0, 
+//             0, 
+//             initialRecipient, 
+//             block.timestamp + 30
+//         );
 
-        vm.stopPrank();
-    }
-
-
-    function _freez_utils() internal{
-        uint256 percent61 = USDT.balanceOf(lex.pancakePair()) * 61 / 100;
-        USDT.reduce(lex.pancakePair(), percent61);
-        IUniswapV2Pair(lex.pancakePair()).sync();
-    }
-
-    function _unfreeze_utils() internal{
-        uint256 reminingUsdt = USDT.balanceOf(lex.pancakePair());
-        uint256 toAmount = reminingUsdt * 2;
-        _transfer_utils(address(USDT), initialRecipient, lex.pancakePair(), toAmount);
-        IUniswapV2Pair(lex.pancakePair()).sync();
-    }
+//         vm.stopPrank();
+//     }
 
 
-    function _transfer_utils(address _token, address _from, address _to, uint256 _amount) internal{
-        vm.startPrank(_from);
-        IERC20(_token).transfer(_to, _amount);
-        vm.stopPrank();
-    }
+//     function _freez_utils() internal{
+//         uint256 percent61 = USDT.balanceOf(lex.pancakePair()) * 61 / 100;
+//         USDT.reduce(lex.pancakePair(), percent61);
+//         IUniswapV2Pair(lex.pancakePair()).sync();
+//     }
 
-    function _referral_utils(address _parent, address _user) internal{
-        vm.startPrank(_user);
-        router.referral(_parent);
-        vm.stopPrank();
-    }
+//     function _unfreeze_utils() internal{
+//         uint256 reminingUsdt = USDT.balanceOf(lex.pancakePair());
+//         uint256 toAmount = reminingUsdt * 2;
+//         _transfer_utils(address(USDT), initialRecipient, lex.pancakePair(), toAmount);
+//         IUniswapV2Pair(lex.pancakePair()).sync();
+//     }
 
-    function _stake_utils(address _user, uint256 _amount, uint8 _stakeIndex) internal{
-        vm.startPrank(_user);
-        USDT.approve(address(router), _amount);
-        router.stake(_amount, _stakeIndex);
-        vm.stopPrank();
-    }
 
-    function _unstake_utils(address _user, uint256 _orderIndex) internal{
-        vm.startPrank(_user);
-        router.unstake(_orderIndex);
-        vm.stopPrank();
-    }
+//     function _transfer_utils(address _token, address _from, address _to, uint256 _amount) internal{
+//         vm.startPrank(_from);
+//         IERC20(_token).transfer(_to, _amount);
+//         vm.stopPrank();
+//     }
 
-    function _claim_utils(address _user, uint256 _orderIndex) internal{
-        vm.startPrank(_user);
-        router.claim(_orderIndex);
-        vm.stopPrank();
-    }
+//     function _referral_utils(address _parent, address _user) internal{
+//         vm.startPrank(_user);
+//         router.referral(_parent);
+//         vm.stopPrank();
+//     }
 
-    function _restake_utils(address _user, uint256 _orderIndex, uint8 _newStakeIndex) internal{
-        vm.startPrank(_user);
-        router.restake(_orderIndex, _newStakeIndex);
-        vm.stopPrank();
-    }
+//     function _stake_utils(address _user, uint256 _amount, uint8 _stakeIndex) internal{
+//         vm.startPrank(_user);
+//         USDT.approve(address(router), _amount);
+//         router.stake(_amount, _stakeIndex);
+//         vm.stopPrank();
+//     }
 
-    function _referral_and_stake_utils(address _user, uint256 _amount, uint8 _stakeIndex) internal{
-        _referral_utils(rootAddr, _user);
-        _transfer_utils(address(USDT), initialRecipient, _user, _amount);
-        _stake_utils(_user, _amount, _stakeIndex);
-    }
+//     function _unstake_utils(address _user, uint256 _orderIndex) internal{
+//         vm.startPrank(_user);
+//         router.unstake(_orderIndex);
+//         vm.stopPrank();
+//     }
 
-    ////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////
+//     function _claim_utils(address _user, uint256 _orderIndex) internal{
+//         vm.startPrank(_user);
+//         router.claim(_orderIndex);
+//         vm.stopPrank();
+//     }
 
-    function test_queue() public {
-        vm.warp(block.timestamp + 1 days);
-        vm.startPrank(admin);
-        queue.setQuotaRatios(100, 100);
-        vm.stopPrank();
-        (,uint256 stakeRemaining,,) = router.getCurrentQuota();
-        console.log("Current quota:", stakeRemaining);
-        uint256 amount = 1000e18;
-        _referral_and_stake_utils(user, amount, 1);
+//     function _restake_utils(address _user, uint256 _orderIndex, uint8 _newStakeIndex) internal{
+//         vm.startPrank(_user);
+//         router.restake(_orderIndex, _newStakeIndex);
+//         vm.stopPrank();
+//     }
 
-        (
-            ,
-            ,
-            ,
-            ,
-            ,
-            uint8 status
-        ) = router.getQueueInfo(0);
-        assertEq(status, 0);
+//     function _referral_and_stake_utils(address _user, uint256 _amount, uint8 _stakeIndex) internal{
+//         _referral_utils(rootAddr, _user);
+//         _transfer_utils(address(USDT), initialRecipient, _user, _amount);
+//         _stake_utils(_user, _amount, _stakeIndex);
+//     }
 
-        vm.startPrank(admin);
-        queue.setQuotaRatios(10000, 10000);
-        queue.emergencyProcessQueue();
-        vm.stopPrank();
+//     ////////////////////////////////////////////////////////////////////////////////
+//     ////////////////////////////////////////////////////////////////////////////////
+//     ////////////////////////////////////////////////////////////////////////////////
+//     ////////////////////////////////////////////////////////////////////////////////
 
-        (
-            ,
-            ,
-            ,
-            ,
-            ,
-            uint8 status0
-        ) = router.getQueueInfo(0);
-        assertEq(status0, 1);
-    }
+//     function test_queue() public {
+//         vm.warp(block.timestamp + 1 days);
+//         vm.startPrank(admin);
+//         queue.setQuotaRatios(100, 100);
+//         vm.stopPrank();
+//         (,uint256 stakeRemaining,,) = router.getCurrentQuota();
+//         console.log("Current quota:", stakeRemaining);
+//         uint256 amount = 1000e18;
+//         _referral_and_stake_utils(user, amount, 1);
+
+//         (
+//             ,
+//             ,
+//             ,
+//             ,
+//             ,
+//             uint8 status
+//         ) = router.getQueueInfo(0);
+//         assertEq(status, 0);
+
+//         vm.startPrank(admin);
+//         queue.setQuotaRatios(10000, 10000);
+//         queue.emergencyProcessQueue();
+//         vm.stopPrank();
+
+//         (
+//             ,
+//             ,
+//             ,
+//             ,
+//             ,
+//             uint8 status0
+//         ) = router.getQueueInfo(0);
+//         assertEq(status0, 1);
+//     }
 
     // function test_referral() public {
     //     vm.expectRevert(bytes("Error parent address."));
@@ -635,4 +635,4 @@ contract RouterTest is Test{
 //         console.log("After restake usdt balance of user:", USDT.balanceOf(user));
 //     }
     
-}
+// }

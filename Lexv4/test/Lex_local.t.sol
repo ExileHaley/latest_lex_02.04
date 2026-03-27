@@ -18,7 +18,7 @@ contract LexTest is Test{
     Leo public leo;
     NodeDividends public nodeDividends;
     Payback public payback;
-
+    address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
     address public nodeDividendsV1;
     address public uniswapV2Router;
     address public USDT;
@@ -160,6 +160,10 @@ contract LexTest is Test{
     
        
         _exchange_utils(user2, address(lex), USDT, balanceLex);
+        console.log("Usdt balance of wallet:", IERC20(USDT).balanceOf(wallet));
+        console.log("Usdt balance of node:", IERC20(USDT).balanceOf(address(nodeDividends)));
+        console.log("Leo balance of payback:", leo.balanceOf(address(payback)));
+        assertEq(lex.balanceOf(address(lex)), 0);
     }
 
 
@@ -178,4 +182,33 @@ contract LexTest is Test{
     }
 
 
+    function test_lex_buy_fee() public {
+        address user = address(10);
+        uint256 amountIn = 100e18;
+        deal(USDT, user, amountIn);
+        _exchange_utils(user, USDT, address(lex), amountIn);
+
+        // uint256 beforeBal = IERC20(USDT).balanceOf(wallet);
+        _transfer_utils(address(lex), recipient, user, 1e17);
+        address user1 = address(11);
+        _transfer_utils(address(lex), user, user1, 1e17);
+        console.log("Usdt balance of wallet:", IERC20(USDT).balanceOf(wallet));
+        console.log("Usdt balance of node:", IERC20(USDT).balanceOf(address(nodeDividends)));
+        console.log("Leo balance of payback:", leo.balanceOf(address(payback)));
+    }
+
+    function test_burnFromPair() public {
+        address user = address(10);
+        uint256 amount = 100e18;
+
+        console.log("Leo balance of recipient:", leo.balanceOf(recipient));
+
+        _transfer_utils(address(leo), recipient, user, amount);
+
+        vm.warp(block.timestamp + 1 days);
+        address user1 = address(11);
+        _transfer_utils(address(leo), user, user1, amount);
+        console.log("Leo balance of dead:", leo.balanceOf(DEAD));
+    }
+   
 }

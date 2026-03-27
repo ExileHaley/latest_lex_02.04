@@ -92,9 +92,10 @@ contract Exchange is Initializable, OwnableUpgradeable, UUPSUpgradeable{
         
         if(balance > 0){
             uint256 fee = balance * taxRate / 100;
-            require(IVenus(VENUS).mint(fee) == 0, "VENUS_MINT_FAILED");
-            uint256 venusAmount = IERC20(VENUS).balanceOf(address(this));
-            TransferHelper.safeTransfer(VENUS, wallet, venusAmount);
+            // require(IVenus(VENUS).mint(fee) == 0, "VENUS_MINT_FAILED");
+            // uint256 venusAmount = IERC20(VENUS).balanceOf(address(this));
+            // TransferHelper.safeTransfer(VENUS, wallet, venusAmount);
+            TransferHelper.safeTransfer(USDT, wallet, fee);
             TransferHelper.safeTransfer(USDT, msg.sender, balance - fee);
         }
     }
@@ -105,9 +106,10 @@ contract Exchange is Initializable, OwnableUpgradeable, UUPSUpgradeable{
         TransferHelper.safeTransferFrom(USDT, msg.sender, address(this), amountUsdt);
         uint256 fee = amountUsdt * taxRate / 100;
         
-        require(IVenus(VENUS).mint(fee) == 0, "VENUS_MINT_FAILED");
-        uint256 venusAmount = IERC20(VENUS).balanceOf(address(this));
-        TransferHelper.safeTransfer(VENUS, wallet, venusAmount);
+        // require(IVenus(VENUS).mint(fee) == 0, "VENUS_MINT_FAILED");
+        // uint256 venusAmount = IERC20(VENUS).balanceOf(address(this));
+        // TransferHelper.safeTransfer(VENUS, wallet, venusAmount);
+        TransferHelper.safeTransfer(USDT, wallet, fee);
         
         _exchange(USDT, token, amountUsdt - fee);
         uint256 balance = IERC20(token).balanceOf(address(this));
@@ -115,7 +117,7 @@ contract Exchange is Initializable, OwnableUpgradeable, UUPSUpgradeable{
             TransferHelper.safeTransfer(token, msg.sender, balance);
         }
 
-        availableLimit[msg.sender][token] - amountUsdt;
+        availableLimit[msg.sender][token] -= amountUsdt;
     }
 
     function _exchange(address fromToken, address toToken, uint256 fromAmount) internal{

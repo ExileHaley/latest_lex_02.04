@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
+import {Models} from "../libraries/Models.sol";
 
 interface IQueue {
     function getUserQueueIds(address user) external view returns (uint256[] memory);
@@ -51,6 +52,6 @@ interface IQueue {
     ) external;
     function drawFomoRewards() external;
 
-    function fomoAwardsInfo(address user) external view returns(uint256 rounds, uint256 amount);
+    function getFomoAwardsInfo(address user) external view returns(Models.FomoAwards[] memory);
     function userQueueAmount(address user) external view returns(uint256);
 }

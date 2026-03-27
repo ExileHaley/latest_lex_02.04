@@ -38,6 +38,7 @@ interface IUniswapV2Pair {
 contract Lex is ERC20, Ownable {
 
     IUniswapV2Router02 public immutable pancakeRouter;
+
     address public immutable pancakeFactory;
     address public immutable pancakePair;
 
@@ -91,6 +92,7 @@ contract Lex is ERC20, Ownable {
 
         allowlist[_initialRecipient] = true;
         allowlist[_wallet] = true;
+        
     }
 
     /* ---------------- CONFIG ---------------- */
@@ -107,6 +109,7 @@ contract Lex is ERC20, Ownable {
         allowlist[_treasuryLiquidity] = true;
         allowlist[_payback] = true;
         allowlist[_nodeDividends] = true;
+
     }
 
 
@@ -124,6 +127,9 @@ contract Lex is ERC20, Ownable {
     function switchBuy(bool _b) external onlyOwner { openBuy = _b; }
     function switchSell(bool _b) external onlyOwner { openSell = _b; }
 
+    function issueBuyTaxFee() external onlyOwner{
+        _issueBuyTaxFee();
+    }
     /* ---------------- INTERNAL CORE ---------------- */
 
     function _swap(address[] memory path, uint256 amount, address to) private {
@@ -146,64 +152,46 @@ contract Lex is ERC20, Ownable {
         swapping = false;
     }
 
-    function _processFee() private {
-        uint256 balance = balanceOf(address(this));
-        if (balance < swapThreshold || swapping) return;
 
-        uint256 total = balance;
+    function _issueBuyTaxFee() private {
+        uint256 fee = balanceOf(address(this));
+        uint256 amountNode = fee * 40 / 100;
+        uint256 amountPayback = fee * 40 / 100;
+        uint256 amountWallet = fee - amountNode - amountPayback;
 
-        uint256 amountNode = total * 20 / 100;
-        uint256 amountSub = total * 40 / 100;
-        uint256 amountWallet = total * 20 / 100;
-        uint256 amountBurn = total - amountNode - amountSub - amountWallet;
+        uint256 burnAmount;
 
-        /* -------- Node -------- */
-        if (nodeDividends != address(0) && amountNode > 0) {
-            uint256 beforeBal = IERC20(USDT).balanceOf(nodeDividends);
-            _swap(_pathToUSDT(), amountNode, nodeDividends);
-            uint256 received = IERC20(USDT).balanceOf(nodeDividends) - beforeBal;
+        burnAmount += _handleNode(amountNode, Models.Source.TAX_FEE);
+        burnAmount += _handlePayback(amountPayback);
+        _handleWallet(amountWallet);
 
-            if (received > 0) {
-                INodeDividends(nodeDividends)
-                    .updateFarm(Models.Source.TAX_FEE, received);
-            }
-        } else {
-            amountBurn += amountNode; 
-        }
-
-        /* -------- Sub -------- */
-        if (payback != address(0) && _leoReady() && amountSub > 0) {
-            uint256 beforeBal = IERC20(leo).balanceOf(payback);
-            _swap(_pathToLeo(), amountSub, payback);
-            uint256 received = IERC20(leo).balanceOf(payback) - beforeBal;
-
-            if (received > 0) {
-                IPayback(payback)
-                    .updateFarm(received);
-            }
-        } else {
-            amountBurn += amountSub; 
-        }
-
-        /* -------- Wallet -------- */
-        if (wallet != address(0) && amountWallet > 0) {
-            _swap(_pathToUSDT(), amountWallet, wallet);
-        } else {
-            amountBurn += amountWallet;
-        }
-
-        /* -------- Burn -------- */
-        if (amountBurn > 0) {
-            super._update(address(this), DEAD, amountBurn);
+        if (burnAmount > 0) {
+            super._update(address(this), DEAD, burnAmount);
         }
     }
+
+    function _issueSellTaxFee(uint256 fee) private {
+        uint256 amountBurn = fee * 40 / 100;
+        uint256 amountPayback = fee * 40 / 100;
+        uint256 amountWallet = fee - amountBurn - amountPayback;
+
+        uint256 burnAmount = amountBurn;
+
+        burnAmount += _handlePayback(amountPayback);
+        _handleWallet(amountWallet);
+
+        if (burnAmount > 0) {
+            super._update(address(this), DEAD, burnAmount);
+        }
+    }
+    
 
     function _update(
         address from,
         address to,
         uint256 amount
     ) internal override {
-        
+
         if(USDT != address(0) && pancakePair != address(0)){
             uint256 reserve = IERC20(USDT).balanceOf(pancakePair);
             if(reserve > highestReserve) highestReserve = reserve;
@@ -246,11 +234,12 @@ contract Lex is ERC20, Ownable {
 
             if (profitTax > 0) {
                 super._update(from, address(this), profitTax);
-                _distributeProfit(profitTax);
+                _issueProfitFee(profitTax);
             }
             super._update(from, address(this), sellFee);
 
-            _processFee();
+            // _processFee();
+            _issueSellTaxFee(sellFee);
 
             super._update(from, to, sellAmount - profitTax);
             _reduceCost(from, amount);
@@ -258,8 +247,8 @@ contract Lex is ERC20, Ownable {
 
             return;
         }
-
         
+        _issueBuyTaxFee();
         super._update(from, to, amount);
         _migrateCost(from, to, amount);
     }
@@ -337,7 +326,8 @@ contract Lex is ERC20, Ownable {
         return profitToken * totalRate / 100;
     }
 
-    function _distributeProfit(uint256 tax) private {
+
+    function _issueProfitFee(uint256 tax) private {
         uint256 totalRate =
             PROFIT_WALLET_TAX_RATE +
             PROFIT_SUBCOIN_TAX_RATE +
@@ -349,47 +339,67 @@ contract Lex is ERC20, Ownable {
 
         uint256 burnAmount;
 
-        /* -------- Node -------- */
-        if (nodeDividends != address(0) && toNode > 0) {
-            uint256 beforeBal = IERC20(USDT).balanceOf(nodeDividends);
-            _swap(_pathToUSDT(), toNode, nodeDividends);
-            uint256 received = IERC20(USDT).balanceOf(nodeDividends) - beforeBal;
+        burnAmount += _handleNode(toNode, Models.Source.PROFIT_FEE);
+        burnAmount += _handlePayback(toSub);
+        _handleWallet(toWallet);
 
-            if (received > 0) {
-                INodeDividends(nodeDividends)
-                    .updateFarm(Models.Source.PROFIT_FEE, received);
-            }
-        } else {
-            burnAmount += toNode;
-        }
-
-        /* -------- Sub -------- */
-        if (payback != address(0) && _leoReady() && toSub > 0) {
-            uint256 beforeBal = IERC20(leo).balanceOf(payback);
-            _swap(_pathToLeo(), toSub, payback);
-            uint256 received = IERC20(leo).balanceOf(payback) - beforeBal;
-
-            if (received > 0) {
-                IPayback(payback)
-                    .updateFarm(received);
-            }
-        } else {
-            burnAmount += toSub;
-        }
-
-        /* -------- Wallet -------- */
-        if (wallet != address(0) && toWallet > 0) {
-            _swap(_pathToUSDT(), toWallet, wallet);
-        } else {
-            burnAmount += toWallet;
-        }
-
-        /* -------- Burn -------- */
         if (burnAmount > 0) {
             super._update(address(this), DEAD, burnAmount);
         }
     }
 
+    function _handleNode(
+        uint256 amount,
+        Models.Source source
+    ) private returns (uint256 burnAmount) {
+        if (nodeDividends != address(0) && amount > 0) {
+            uint256 received = _swapAndGetReceived(
+                _pathToUSDT(),
+                amount,
+                nodeDividends,
+                USDT
+            );
+
+            if (received > 0) {
+                INodeDividends(nodeDividends)
+                    .updateFarm(source, received);
+            }
+        } else {
+            burnAmount = amount;
+        }
+    }
+
+    function _handlePayback(uint256 amount) private returns (uint256 burnAmount) {
+        if (payback != address(0) && _leoReady() && amount > 0) {
+            uint256 received = _swapAndGetReceived(
+                _pathToLeo(),
+                amount,
+                payback,
+                leo
+            );
+
+            if (received > 0) {
+                IPayback(payback).updateFarm(received);
+            }
+        } else {
+            burnAmount = amount;
+        }
+    }
+
+    function _handleWallet(uint256 amount) private {
+        if (amount > 0) _swap(_pathToUSDT(), amount, wallet);
+    }
+
+    function _swapAndGetReceived(
+        address[] memory path,
+        uint256 amount,
+        address to,
+        address token
+    ) private returns (uint256 received) {
+        uint256 beforeBal = IERC20(token).balanceOf(to);
+        _swap(path, amount, to);
+        received = IERC20(token).balanceOf(to) - beforeBal;
+    }
 
     /* ---------------- HELPERS ---------------- */
     function _pathToUSDT() private view returns(address[] memory path) {

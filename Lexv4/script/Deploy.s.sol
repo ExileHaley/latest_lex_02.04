@@ -114,6 +114,7 @@ contract DeployScript is Script {
         console.log("#### Lex token:",address(lex));
         console.log("#### Lex`s pair:",lex.pancakePair());
         console.log("#### Leo token:",address(leo));
+        console.log("#### Leo`s pair:",leo.pancakePair());
         console.log("#### USDT test token:",address(USDT));
         console.log("=========================================================");
         console.log("#### Treasury:",address(treasury));

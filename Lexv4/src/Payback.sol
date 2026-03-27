@@ -30,6 +30,7 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         uint256 pending;
         uint256 debt;
         uint256 usdtValue;
+        uint256 extracted;
     }
 
     mapping(address => User) public userInfo;
@@ -186,7 +187,7 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
             u.debt = u.staking * accRewardPerShare / ACC;
         }
-
+        u.extracted += sendLeo;
         TransferHelper.safeTransfer(leo,msg.sender,sendLeo);
     }
 
@@ -207,10 +208,11 @@ contract Payback is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         TransferHelper.safeTransfer(_token, _to, _amount);
     }
 
-    function getUserInfo(address user) external view returns(uint256 staking, uint256 extracted, uint256 truthAward){
+    function getUserInfo(address user) external view returns(uint256 staking, uint256 usdtValue, uint256 extracted, uint256 truthAward){
         User memory u = userInfo[user];
         staking = u.staking;
-        extracted = u.usdtValue;
+        usdtValue = u.usdtValue;
+        extracted = u.extracted;
         truthAward = getUserAward(user);
     }
 }

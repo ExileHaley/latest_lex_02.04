@@ -1,21 +1,20 @@
 ### == contract address ==
-  #### Lex token: 0x1b64bB8eFfcA42CeE0FDf02FC464c8c76eCd0FC6
-  #### Lex`s pair: 0x81fF1F0e9504c39F37531d8954eEd7C939B847F8
-  #### Leo token: 0x210df925199eeC93952A3037CadEa4dBA96A6DbA
-  #### Leo`s pair: 0xE7D301a9b4c6c7506379c86851f5e2ee0E863a00
-  #### USDT test token: 0xCe90d1c87c967d677467cBAf5fA508860BF99023
+  #### Lex token: 0x961BDb47b3E368e5B873f99a374d8DeB88b50Ed2
+  #### Lex`s pair: 0x193e3C434bf790D14aD5D72e6946B610d684f1Fd
+  #### Leo token: 0x256C8a16C094B2d97a8Ff1B08f073432965B5c40
+  #### Leo`s pair: 0x46989375494d63D1f82eE4389d2fD1a00825893A
+  #### USDT test token: 0x2443dd5aBb73965b5d7C39990bAcc164C11C6229
   =========================================================
-  #### Treasury: 0xFeAA92C89Edb0c42523488Bd71CC10CEFA6fdbbf
-  #### TreasuryLiquidity: 0xeC9ced01e6F8A2Fc1D97cb6BD27FF58814858d7a
-  #### NodeDividends: 0x73b62E8a27E2f109c425e0059C59606ef10d02A3
-  #### Queue: 0xC43F6e2870aB97711e0795C6788575Fe3ef99292
-  #### Referrals: 0x9Ed8B7505CaD63de839Ea8C4BA3d675d8C90CFBD
-  #### Router: 0x4B69a31A7De1fc9b2f5Bb8C056d5838946f1f070
-  #### Exchange: 0xE9b7c269C38F7DBCbA9ac480DaF1e34Dd83629C3
-  #### Payback: 0x85D100C07E1fE4a5cF4d78544A8D98122535EaE2
+  #### Treasury: 0x937E7db7A9991Eb59f4f0422b28922bA71A22d01
+  #### TreasuryLiquidity: 0xfEd7e72f4858D3A267162D8709051C4B9f42b56e
+  #### NodeDividends: 0xd71241Bc207CC79330690e663D0c23ED143ba2Ed
+  #### Queue: 0x6B523B7a78457EF7dDeC487fBDc0fc8d3ED5b174
+  #### Referrals: 0x681Fa0971586B298d0DeEEcD930ab2C7a5c5404B
+  #### Router: 0x1F1a91224EFc6ebf7308403d8C42E90b96cd4963
+  #### Exchange: 0x20D60BcA3a1b7aAfEAC61b32F382E1815bA8C397
+  #### Payback: 0xC17EE2f57C03CD495beb2b8972f573Fb5B2235dD
 
-### router里面新增了getRemainingQuota和getTrialRemainingQuota，管理员新增了两个方法，另外就是排队订单详情去掉了isRestake字段
-### queue管理方法新增了emergencyProcessQueue
+### router里面更新了getFomoAwardsInfo，payback里更新了getUserInfo
 
 ### 用户方法列表
 #### router func list
@@ -148,8 +147,12 @@ function getStakePlans(uint8 stakeIndex)
             uint32 window,
             uint64 rate
         );
-//fomo奖励详情，rounds奖励来来自于第几次分发，amount本次分发的fomo奖励数量
-function getFomoAwardsInfo(address user) external view returns(uint256 rounds, uint256 amount);
+struct FomoAwards{
+        uint256 rounds; //奖励来源的轮次
+        uint256 amount; //本轮次奖励的数量
+    }
+//fomo奖励详情
+function getFomoAwardsInfo(address user) external view returns(Models.FomoAwards[] memory);
 ```
 
 
@@ -205,8 +208,8 @@ function buy(address token, uint256 amountUsdt) external;
 ```solidity
 //用户提取收益
 function claim() external;
-//用户信息查询，质押总额staking(USDT)，已提取的extracted(USDT)，当前真实可提取收益truthAward(leo)
-function getUserInfo(address user) external view returns(uint256 staking, uint256 extracted, uint256 truthAward);
+//用户信息查询，质押总额staking(USDT)，已提取的extracted(leo)，usdtValue已提取的leo价值多少USDT，当前真实可提取收益truthAward(leo)
+function getUserInfo(address user) external view returns(uint256 staking, uint256 usdtValue, uint256 extracted, uint256 truthAward);
 
 ```
 

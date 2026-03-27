@@ -218,8 +218,8 @@ contract Router is Ownable, ReentrancyGuard{
     }
 
 
-    function getFomoAwardsInfo(address user) external view returns(uint256 rounds, uint256 amount){
-        (rounds, amount) = IQueue(queue).fomoAwardsInfo(user);
+    function getFomoAwardsInfo(address user) external view returns(Models.FomoAwards[] memory){
+        return IQueue(queue).getFomoAwardsInfo(user);
     }
 
     function getRemainingQuota(address user) public view returns(uint256){

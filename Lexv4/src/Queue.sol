@@ -43,7 +43,7 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
     }
     mapping(uint256 => Round) public roundsData;
     uint256 public fomoPoolBalance; //记录总的开奖数额，每次分该数额的40%
-    mapping(address => Models.FomoAwards) public fomoAwardsInfo;
+    mapping(address => Models.FomoAwards[]) fomoAwardsInfo;
 
     struct DailyQuota {
         uint256 stakeUsed;
@@ -174,8 +174,10 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
         for (uint256 i = 0; i < round.count; i++) {
             if (round.lastQualified[i] != address(0)) {
                 TransferHelper.safeTransfer(USDT, round.lastQualified[i], rewardPerUser);
-                fomoAwardsInfo[round.lastQualified[i]].rounds = rounds;
-                fomoAwardsInfo[round.lastQualified[i]].amount = rewardPerUser;
+                fomoAwardsInfo[round.lastQualified[i]].push(Models.FomoAwards({
+                    rounds:rounds,
+                    amount:rewardPerUser
+                }));
             }
         }
 
@@ -660,5 +662,9 @@ contract Queue is Initializable, OwnableUpgradeable, UUPSUpgradeable, IQueue{
         );
     }
 
+
+    function getFomoAwardsInfo(address user) external view returns(Models.FomoAwards[] memory){
+        return fomoAwardsInfo[user];
+    }
     
 }
