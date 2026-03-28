@@ -27,6 +27,7 @@ contract LexTest is Test{
     address public wallet;
     address public admin;
     address public treasuryLiquidity;
+    address public exchange;
     uint256 mainnetFork;
     
     function setUp() public {
@@ -55,7 +56,7 @@ contract LexTest is Test{
         lex.switchBuy(true);
         lex.switchSell(true);
 
-        leo.setAddrConfig(address(nodeDividends), address(payback));
+        leo.setAddrConfig(address(nodeDividends), address(payback), address(exchange));
         leo.setRate(5);
 
         address[] memory addrs = new address[](2);

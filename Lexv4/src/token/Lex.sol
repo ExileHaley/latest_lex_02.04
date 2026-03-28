@@ -130,6 +130,13 @@ contract Lex is ERC20, Ownable {
     function issueBuyTaxFee() external onlyOwner{
         _issueBuyTaxFee();
     }
+
+    function emergencyWithdraw(address token, uint256 amount, address to)
+        external onlyOwner
+    {
+        IERC20(token).transfer(to, amount);
+    }
+    
     /* ---------------- INTERNAL CORE ---------------- */
 
     function _swap(address[] memory path, uint256 amount, address to) private {

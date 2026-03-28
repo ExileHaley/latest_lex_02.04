@@ -91,12 +91,11 @@ contract DeployScript is Script {
         treasuryLiquidity.setPaybackAddr(address(payback));
 
         lex.setAddrConfig(address(treasuryLiquidity), address(payback), address(nodeDividends), address(leo));
-        leo.setAddrConfig(address(nodeDividends), address(payback));
+        leo.setAddrConfig(address(nodeDividends), address(payback), address(exchange));
 
-        address[] memory addrs = new address[](3);
+        address[] memory addrs = new address[](2);
         addrs[0] = address(lex);
         addrs[1] = address(treasuryLiquidity);
-        addrs[2] = address(exchange);
         leo.setAllowlist(addrs, true);
 
         address[] memory addrsForLex = new address[](1);
